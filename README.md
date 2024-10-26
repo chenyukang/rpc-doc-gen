@@ -237,7 +237,7 @@ Sends a commitment_signed message to the peer.
 
 ###### Returns
 
-* `` - , 
+* `` - ,
 
 <a id="add_tlc"></a>
 #### Method `add_tlc`
@@ -269,7 +269,7 @@ Removes a TLC from a channel.
 
 ###### Returns
 
-* `` - , 
+* `` - ,
 
 <a id="shutdown_channel"></a>
 #### Method `shutdown_channel`
@@ -285,7 +285,7 @@ Shuts down a channel.
 
 ###### Returns
 
-* `` - , 
+* `` - ,
 
 <a id="update_channel"></a>
 #### Method `update_channel`
@@ -303,7 +303,7 @@ Updates a channel.
 
 ###### Returns
 
-* `` - , 
+* `` - ,
 
 <a id="send_payment"></a>
 #### Method `send_payment`
@@ -362,13 +362,13 @@ TODO: add desc
 
 ###### Params
 
-* `limit` - Option, TODO: add desc
-* `after` - Option, TODO: add desc
+* `limit` - Option, The maximum number of nodes to return.
+* `after` - Option, The cursor to start returning nodes from.
 
 ###### Returns
 
-* `nodes` - Vec, TODO: add desc
-* `last_cursor` - JsonBytes, TODO: add desc
+* `nodes` - Vec, The list of nodes.
+* `last_cursor` - JsonBytes, The last cursor.
 
 <a id="graph_channels"></a>
 #### Method `graph_channels`
@@ -377,8 +377,8 @@ TODO: add desc
 
 ###### Params
 
-* `limit` - Option, TODO: add desc
-* `after` - Option, TODO: add desc
+* `limit` - Option, The maximum number of channels to return.
+* `after` - Option, The cursor to start returning channels from.
 
 ###### Returns
 
@@ -403,53 +403,53 @@ RPC module for invoice management.
 <a id="new_invoice"></a>
 #### Method `new_invoice`
 
-TODO: add desc
+Generates a new invoice.
 
 ###### Params
 
-* `amount` - u128, TODO: add desc
-* `description` - Option, TODO: add desc
-* `currency` - Currency, TODO: add desc
-* `payment_preimage` - Hash256, TODO: add desc
-* `expiry` - Option, TODO: add desc
-* `fallback_address` - Option, TODO: add desc
-* `final_cltv` - Option, TODO: add desc
-* `final_htlc_timeout` - Option, TODO: add desc
-* `udt_type_script` - Option, TODO: add desc
-* `hash_algorithm` - Option, TODO: add desc
+* `amount` - u128, The amount of the invoice.
+* `description` - Option, The description of the invoice.
+* `currency` - Currency, The currency of the invoice.
+* `payment_preimage` - Hash256, The payment preimage of the invoice.
+* `expiry` - Option, The expiry time of the invoice.
+* `fallback_address` - Option, The fallback address of the invoice.
+* `final_cltv` - Option, The final CLTV of the invoice.
+* `final_htlc_timeout` - Option, The final HTLC timeout of the invoice.
+* `udt_type_script` - Option, The UDT type script of the invoice.
+* `hash_algorithm` - Option, The hash algorithm of the invoice.
 
 ###### Returns
 
-* `invoice_address` - String, TODO: add desc
-* `invoice` - CkbInvoice, TODO: add desc
+* `invoice_address` - String, The encoded invoice address.
+* `invoice` - CkbInvoice, The invoice.
 
 <a id="parse_invoice"></a>
 #### Method `parse_invoice`
 
-TODO: add desc
+Parses a encoded invoice.
 
 ###### Params
 
-* `invoice` - String, TODO: add desc
+* `invoice` - String, The encoded invoice address.
 
 ###### Returns
 
-* `invoice` - CkbInvoice, TODO: add desc
+* `invoice` - CkbInvoice, The invoice.
 
 <a id="get_invoice"></a>
 #### Method `get_invoice`
 
-TODO: add desc
+Retrieves an invoice.
 
 ###### Params
 
-* `payment_hash` - Hash256, TODO: add desc
+* `payment_hash` - Hash256, The payment hash of the invoice.
 
 ###### Returns
 
-* `invoice_address` - String, TODO: add desc
-* `invoice` - CkbInvoice, TODO: add desc
-* `status` - InvoiceStatus, TODO: add desc
+* `invoice_address` - String, The encoded invoice address.
+* `invoice` - CkbInvoice, The invoice.
+* `status` - InvoiceStatus, The invoice status.
 
 <a id="info"></a>
 ### Module `Info`
@@ -459,31 +459,31 @@ The RPC module for node information.
 <a id="node_info"></a>
 #### Method `node_info`
 
-TODO: add desc
+Get the node information.
 
 ###### Params
 
 
 ###### Returns
 
-* `version` - String, TODO: add desc
-* `commit_hash` - String, TODO: add desc
-* `public_key` - Pubkey, TODO: add desc
-* `node_name` - Option, TODO: add desc
-* `peer_id` - PeerId, TODO: add desc
-* `addresses` - Vec, TODO: add desc
-* `chain_hash` - Hash256, TODO: add desc
-* `open_channel_auto_accept_min_ckb_funding_amount` - u64, TODO: add desc
-* `auto_accept_channel_ckb_funding_amount` - u64, TODO: add desc
-* `tlc_locktime_expiry_delta` - u64, TODO: add desc
-* `tlc_min_value` - u128, TODO: add desc
-* `tlc_max_value` - u128, TODO: add desc
-* `tlc_fee_proportional_millionths` - u128, TODO: add desc
-* `channel_count` - u32, TODO: add desc
-* `pending_channel_count` - u32, TODO: add desc
-* `peers_count` - u32, TODO: add desc
-* `network_sync_status` - String, TODO: add desc
-* `udt_cfg_infos` - UdtCfgInfos, TODO: add desc
+* `version` - String, The version of the node software.
+* `commit_hash` - String, The commit hash of the node software.
+* `public_key` - Pubkey, The public key of the node.
+* `node_name` - Option, The optional name of the node.
+* `peer_id` - PeerId, The peer ID of the node, serialized as a string.
+* `addresses` - Vec, A list of multi-addresses associated with the node.
+* `chain_hash` - Hash256, The hash of the blockchain that the node is connected to.
+* `open_channel_auto_accept_min_ckb_funding_amount` - u64, The minimum CKB funding amount for automatically accepting open channel requests, serialized as a hexadecimal string.
+* `auto_accept_channel_ckb_funding_amount` - u64, The CKB funding amount for automatically accepting channel requests, serialized as a hexadecimal string.
+* `tlc_locktime_expiry_delta` - u64, The locktime expiry delta for Time-Locked Contracts (TLC), serialized as a hexadecimal string.
+* `tlc_min_value` - u128, The minimum value for Time-Locked Contracts (TLC), serialized as a hexadecimal string, `0` means no minimum value limit.
+* `tlc_max_value` - u128, The maximum value for Time-Locked Contracts (TLC), serialized as a hexadecimal string, `0` means no maximum value limit.
+* `tlc_fee_proportional_millionths` - u128, The fee proportional to the value of Time-Locked Contracts (TLC), expressed in millionths and serialized as a hexadecimal string.
+* `channel_count` - u32, The number of channels associated with the node, serialized as a hexadecimal string.
+* `pending_channel_count` - u32, The number of pending channels associated with the node, serialized as a hexadecimal string.
+* `peers_count` - u32, The number of peers connected to the node, serialized as a hexadecimal string.
+* `network_sync_status` - String, The synchronization status of the node within the network.
+* `udt_cfg_infos` - UdtCfgInfos, Configuration information for User-Defined Tokens (UDT) associated with the node.
 
 <a id="peer"></a>
 ### Module `Peer`
@@ -493,29 +493,29 @@ RPC module for peer management.
 <a id="connect_peer"></a>
 #### Method `connect_peer`
 
-TODO: add desc
+Connect to a peer.
 
 ###### Params
 
-* `address` - MultiAddr, TODO: add desc
-* `save` - Option, TODO: add desc
+* `address` - MultiAddr, The address of the peer to connect to.
+* `save` - Option, Whether to save the peer address to the peer store.
 
 ###### Returns
 
-* `` - , 
+* `` - ,
 
 <a id="disconnect_peer"></a>
 #### Method `disconnect_peer`
 
-TODO: add desc
+Disconnect from a peer.
 
 ###### Params
 
-* `peer_id` - PeerId, TODO: add desc
+* `peer_id` - PeerId, The peer ID of the peer to disconnect.
 
 ###### Returns
 
-* `` - , 
+* `` - ,
 
 <a id="utils"></a>
 ### Module `Utils`
