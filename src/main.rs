@@ -10,7 +10,7 @@ use syn::{parse2, ItemType, Type};
 use tera::{Tera, Value};
 use walkdir::WalkDir;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Module {
     pub name: String,
     pub types: Vec<(String, Vec<(String, String, String)>)>,
@@ -83,7 +83,17 @@ impl Module {
                     ]));
                 })
         });
+        // filter the empty type
         result
+            .into_iter()
+            .filter(|v| {
+                if let Some(v) = v.get("name") {
+                    !v.as_str().unwrap().trim().is_empty()
+                } else {
+                    false
+                }
+            })
+            .collect()
     }
 
     pub fn gen_module_content(&self) -> Value {
@@ -92,15 +102,16 @@ impl Module {
         let methods: Value = self
             .rpc_fns
             .iter()
-            .map(|(name, args, ret_ty, desc)| {
+            .map(|(fn_name, args, ret_ty, desc)| {
                 let params = self.convert_types(args);
                 let return_type = self.convert_types(&[ret_ty.clone()]);
+
                 render_tera(
                     include_str!("../templates/method.tera"),
                     &[
-                        ("link", name.clone().into()),
+                        ("link", fn_name.clone().into()),
                         ("desc", desc.clone().into()),
-                        ("name", name.clone().into()),
+                        ("name", fn_name.clone().into()),
                         ("params", params.into()),
                         ("return_type", return_type.into()),
                     ],
@@ -292,8 +303,19 @@ impl SynVisitor {
         self.modules.iter().map(|m| m.gen_menu()).collect()
     }
 
+    fn get_modules(&self) -> Vec<Module> {
+        self.modules
+            .clone()
+            .into_iter()
+            .filter(|m| !m.rpc_fns.is_empty())
+            .collect()
+    }
+
     fn gen_type_menus(&self) -> Value {
-        let all_types = self.modules.iter().flat_map(|m| m.types.iter());
+        let all_types = self
+            .get_modules()
+            .into_iter()
+            .flat_map(|m| m.types.into_iter());
         all_types
             .map(|(name, _)| vec![name.clone().into(), name.to_lowercase().into()])
             .collect::<Vec<Vec<Value>>>()
@@ -302,8 +324,8 @@ impl SynVisitor {
 
     fn gen_module_content(&self) -> Value {
         let content = self
-            .modules
-            .iter()
+            .get_modules()
+            .into_iter()
             .map(|m| m.gen_module_content())
             .collect::<Vec<_>>();
         content.into()

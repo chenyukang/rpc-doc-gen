@@ -5,11 +5,20 @@
 {{desc}}
 
 ###### Params
+{% if params | length %}
 {% for field in params %}
 * `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
 {%- endfor %}
+{% else %}
+* None
+{% endif %}
 
 ###### Returns
+
+{% if return_type | length %}
 {% for field in return_type %}
 * `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
 {%- endfor %}
+{% else %}
+* None
+{% endif %}

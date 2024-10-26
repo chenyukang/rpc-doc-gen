@@ -75,7 +75,6 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
     * [Type `GraphChannelsParams`](#type-graphchannelsparams)
     * [Type `ChannelInfo`](#type-channelinfo)
     * [Type `GraphChannelsResult`](#type-graphchannelsresult)
-    * [Type `RpcConfig`](#type-rpcconfig)
     * [Type `NewInvoiceParams`](#type-newinvoiceparams)
     * [Type `InvoiceResult`](#type-invoiceresult)
     * [Type `ParseInvoiceParams`](#type-parseinvoiceparams)
@@ -100,10 +99,14 @@ Send BTC to a address.
 
 ###### Params
 
+
 * `btc_pay_req` - String, Bitcoin payment request string
 * `currency` - Currency, Request currency
 
+
 ###### Returns
+
+
 
 * `timestamp` - u64, Seconds since epoch when the order is created
 * `expiry` - u64, Seconds after timestamp that the order expires
@@ -117,6 +120,8 @@ Send BTC to a address.
 * `fee_sats` - u128, Fee in Satoshis
 * `status` - CchOrderStatus, Order status
 
+
+
 <a id="receive_btc"></a>
 #### Method `receive_btc`
 
@@ -124,12 +129,16 @@ Receive BTC from a payment hash.
 
 ###### Params
 
+
 * `payment_hash` - String, Payment hash for the HTLC for both CKB and BTC.
 * `channel_id` - Hash256, Channel ID for the CKB payment.
 * `amount_sats` - u128, How many satoshis to receive, excluding cross-chain hub fee.
 * `final_tlc_expiry` - u64, Expiry set for the HTLC for the CKB payment to the payee.
 
+
 ###### Returns
+
+
 
 * `timestamp` - u64, Seconds since epoch when the order is created
 * `expiry` - u64, Seconds after timestamp that the order expires
@@ -142,6 +151,8 @@ Receive BTC from a payment hash.
 * `amount_sats` - u128, Amount will be received by the payee
 * `fee_sats` - u128, Fee in Satoshis
 * `status` - CchOrderStatus, Order status
+
+
 
 <a id="get_receive_btc_order"></a>
 #### Method `get_receive_btc_order`
@@ -150,9 +161,13 @@ Get receive BTC order by payment hash.
 
 ###### Params
 
+
 * `payment_hash` - String, Payment hash for the HTLC for both CKB and BTC.
 
+
 ###### Returns
+
+
 
 * `timestamp` - u64, Seconds since epoch when the order is created
 * `expiry` - u64, Seconds after timestamp that the order expires
@@ -165,6 +180,8 @@ Get receive BTC order by payment hash.
 * `amount_sats` - u128, Amount will be received by the payee
 * `fee_sats` - u128, Fee in Satoshis
 * `status` - CchOrderStatus, Order status
+
+
 
 <a id="channel"></a>
 ### Module `Channel`
@@ -177,6 +194,7 @@ RPC module for channel management.
 Attempts to open a channel with a peer.
 
 ###### Params
+
 
 * `peer_id` - PeerId, The peer ID to open a channel with.
 * `funding_amount` - u128, The amount of CKB or UDT to fund the channel with.
@@ -193,9 +211,14 @@ Attempts to open a channel with a peer.
 * `max_tlc_value_in_flight` - Option, The maximum value in flight for TLCs, an optional parameter.
 * `max_tlc_number_in_flight` - Option, The maximum number of TLCs that can be accepted, an optional parameter.
 
+
 ###### Returns
 
+
+
 * `temporary_channel_id` - Hash256, The temporary channel ID of the channel being opened
+
+
 
 <a id="accept_channel"></a>
 #### Method `accept_channel`
@@ -204,14 +227,20 @@ Accepts a channel opening request from a peer.
 
 ###### Params
 
+
 * `temporary_channel_id` - Hash256, The temporary channel ID of the channel to accept
 * `funding_amount` - u128, The amount of CKB or UDT to fund the channel with
 * `shutdown_script` - Option, The script used to receive the channel balance, an optional parameter,
 default value is the secp256k1_blake160_sighash_all script corresponding to the configured private key
 
+
 ###### Returns
 
+
+
 * `channel_id` - Hash256, The final ID of the channel that was accepted, it's different from the temporary channel ID
+
+
 
 <a id="list_channels"></a>
 #### Method `list_channels`
@@ -220,11 +249,17 @@ Lists all channels.
 
 ###### Params
 
+
 * `peer_id` - Option, The peer ID to list channels for, an optional parameter, if not provided, all channels will be listed
+
 
 ###### Returns
 
+
+
 * `channels` - Vec, The list of channels
+
+
 
 <a id="commitment_signed"></a>
 #### Method `commitment_signed`
@@ -233,11 +268,16 @@ Sends a commitment_signed message to the peer.
 
 ###### Params
 
+
 * `channel_id` - Hash256, The channel ID of the channel to send the commitment_signed message to
+
 
 ###### Returns
 
-* `` - ,
+
+* None
+
+
 
 <a id="add_tlc"></a>
 #### Method `add_tlc`
@@ -246,15 +286,21 @@ Adds a TLC to a channel.
 
 ###### Params
 
+
 * `channel_id` - Hash256, The channel ID of the channel to add the TLC to
 * `amount` - u128, The amount of the TLC
 * `payment_hash` - Hash256, The payment hash of the TLC
 * `expiry` - LockTime, The expiry of the TLC
 * `hash_algorithm` - Option, The hash algorithm of the TLC
 
+
 ###### Returns
 
+
+
 * `tlc_id` - u64, The ID of the TLC
+
+
 
 <a id="remove_tlc"></a>
 #### Method `remove_tlc`
@@ -263,13 +309,18 @@ Removes a TLC from a channel.
 
 ###### Params
 
+
 * `channel_id` - Hash256, The channel ID of the channel to remove the TLC from
 * `tlc_id` - u64, The ID of the TLC to remove
 * `reason` - RemoveTlcReason, The reason for removing the TLC, either a 32-byte hash for preimage fulfillment or an u32 error code for removal
 
+
 ###### Returns
 
-* `` - ,
+
+* None
+
+
 
 <a id="shutdown_channel"></a>
 #### Method `shutdown_channel`
@@ -278,14 +329,19 @@ Shuts down a channel.
 
 ###### Params
 
+
 * `channel_id` - Hash256, The channel ID of the channel to shut down
 * `close_script` - Script, The script used to receive the channel balance, only support secp256k1_blake160_sighash_all script for now
 * `force` - Option, Whether to force the channel to close
 * `fee_rate` - u64, The fee rate for the closing transaction, the fee will be deducted from the closing initiator's channel balance
 
+
 ###### Returns
 
-* `` - ,
+
+* None
+
+
 
 <a id="update_channel"></a>
 #### Method `update_channel`
@@ -294,6 +350,7 @@ Updates a channel.
 
 ###### Params
 
+
 * `channel_id` - Hash256, The channel ID of the channel to update
 * `enabled` - Option, Whether the channel is enabled
 * `tlc_locktime_expiry_delta` - Option, The CLTV delta from the current height that should be used to set the timelock for the final hop
@@ -301,9 +358,13 @@ Updates a channel.
 * `tlc_maximum_value` - Option, The maximum value for a TLC
 * `tlc_fee_proportional_millionths` - Option, The fee proportional millionths for a TLC
 
+
 ###### Returns
 
-* `` - ,
+
+* None
+
+
 
 <a id="send_payment"></a>
 #### Method `send_payment`
@@ -311,6 +372,7 @@ Updates a channel.
 Sends a payment to a peer.
 
 ###### Params
+
 
 * `target_pubkey` - Option, the identifier of the payment target
 * `amount` - Option, the amount of the payment
@@ -325,13 +387,18 @@ FIXME: this should be optional when AMP is enabled
 * `udt_type_script` - Option, udt type script for the payment
 * `allow_self_payment` - Option, allow self payment, default is false
 
+
 ###### Returns
+
+
 
 * `payment_hash` - Hash256, The payment hash of the payment
 * `status` - PaymentSessionStatus, The status of the payment
 * `created_at` - u128, The time the payment was created at
 * `last_updated_at` - u128, The time the payment was last updated at
 * `failed_error` - Option, The error message if the payment failed
+
+
 
 <a id="get_payment"></a>
 #### Method `get_payment`
@@ -340,15 +407,21 @@ Retrieves a payment.
 
 ###### Params
 
+
 * `payment_hash` - Hash256, The payment hash of the payment to retrieve
 
+
 ###### Returns
+
+
 
 * `payment_hash` - Hash256, The payment hash of the payment
 * `status` - PaymentSessionStatus, The status of the payment
 * `created_at` - u128, The time the payment was created at
 * `last_updated_at` - u128, The time the payment was last updated at
 * `failed_error` - Option, The error message if the payment failed
+
+
 
 <a id="graph"></a>
 ### Module `Graph`
@@ -362,13 +435,19 @@ TODO: add desc
 
 ###### Params
 
+
 * `limit` - Option, The maximum number of nodes to return.
 * `after` - Option, The cursor to start returning nodes from.
 
+
 ###### Returns
+
+
 
 * `nodes` - Vec, The list of nodes.
 * `last_cursor` - JsonBytes, The last cursor.
+
+
 
 <a id="graph_channels"></a>
 #### Method `graph_channels`
@@ -377,21 +456,17 @@ TODO: add desc
 
 ###### Params
 
+
 * `limit` - Option, The maximum number of channels to return.
 * `after` - Option, The cursor to start returning channels from.
 
+
 ###### Returns
+
+
 
 * `channels` - Vec, TODO: add desc
 * `last_cursor` - JsonBytes, TODO: add desc
-
-<a id="config"></a>
-### Module `Config`
-
-
-
-<a id="mod"></a>
-### Module `Mod`
 
 
 
@@ -407,6 +482,7 @@ Generates a new invoice.
 
 ###### Params
 
+
 * `amount` - u128, The amount of the invoice.
 * `description` - Option, The description of the invoice.
 * `currency` - Currency, The currency of the invoice.
@@ -418,10 +494,15 @@ Generates a new invoice.
 * `udt_type_script` - Option, The UDT type script of the invoice.
 * `hash_algorithm` - Option, The hash algorithm of the invoice.
 
+
 ###### Returns
+
+
 
 * `invoice_address` - String, The encoded invoice address.
 * `invoice` - CkbInvoice, The invoice.
+
+
 
 <a id="parse_invoice"></a>
 #### Method `parse_invoice`
@@ -430,11 +511,17 @@ Parses a encoded invoice.
 
 ###### Params
 
+
 * `invoice` - String, The encoded invoice address.
+
 
 ###### Returns
 
+
+
 * `invoice` - CkbInvoice, The invoice.
+
+
 
 <a id="get_invoice"></a>
 #### Method `get_invoice`
@@ -443,13 +530,19 @@ Retrieves an invoice.
 
 ###### Params
 
+
 * `payment_hash` - Hash256, The payment hash of the invoice.
 
+
 ###### Returns
+
+
 
 * `invoice_address` - String, The encoded invoice address.
 * `invoice` - CkbInvoice, The invoice.
 * `status` - InvoiceStatus, The invoice status.
+
+
 
 <a id="info"></a>
 ### Module `Info`
@@ -463,8 +556,12 @@ Get the node information.
 
 ###### Params
 
+* None
+
 
 ###### Returns
+
+
 
 * `version` - String, The version of the node software.
 * `commit_hash` - String, The commit hash of the node software.
@@ -485,6 +582,8 @@ Get the node information.
 * `network_sync_status` - String, The synchronization status of the node within the network.
 * `udt_cfg_infos` - UdtCfgInfos, Configuration information for User-Defined Tokens (UDT) associated with the node.
 
+
+
 <a id="peer"></a>
 ### Module `Peer`
 RPC module for peer management.
@@ -497,12 +596,17 @@ Connect to a peer.
 
 ###### Params
 
+
 * `address` - MultiAddr, The address of the peer to connect to.
 * `save` - Option, Whether to save the peer address to the peer store.
 
+
 ###### Returns
 
-* `` - ,
+
+* None
+
+
 
 <a id="disconnect_peer"></a>
 #### Method `disconnect_peer`
@@ -511,14 +615,14 @@ Disconnect from a peer.
 
 ###### Params
 
+
 * `peer_id` - PeerId, The peer ID of the peer to disconnect.
+
 
 ###### Returns
 
-* `` - ,
 
-<a id="utils"></a>
-### Module `Utils`
+* None
 
 
 
