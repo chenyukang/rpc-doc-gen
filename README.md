@@ -92,7 +92,7 @@ RPC module for cross chain hub demonstration.
 This is the seccond line
 
 
-<a id="send_btc"></a>
+<a id="cch-send_btc"></a>
 #### Method `send_btc`
 
 Send BTC to a address.
@@ -122,7 +122,7 @@ Send BTC to a address.
 
 
 
-<a id="receive_btc"></a>
+<a id="cch-receive_btc"></a>
 #### Method `receive_btc`
 
 Receive BTC from a payment hash.
@@ -154,7 +154,7 @@ Receive BTC from a payment hash.
 
 
 
-<a id="get_receive_btc_order"></a>
+<a id="cch-get_receive_btc_order"></a>
 #### Method `get_receive_btc_order`
 
 Get receive BTC order by payment hash.
@@ -188,7 +188,7 @@ Get receive BTC order by payment hash.
 RPC module for channel management.
 
 
-<a id="open_channel"></a>
+<a id="channel-open_channel"></a>
 #### Method `open_channel`
 
 Attempts to open a channel with a peer.
@@ -220,7 +220,7 @@ Attempts to open a channel with a peer.
 
 
 
-<a id="accept_channel"></a>
+<a id="channel-accept_channel"></a>
 #### Method `accept_channel`
 
 Accepts a channel opening request from a peer.
@@ -242,7 +242,7 @@ default value is the secp256k1_blake160_sighash_all script corresponding to the 
 
 
 
-<a id="list_channels"></a>
+<a id="channel-list_channels"></a>
 #### Method `list_channels`
 
 Lists all channels.
@@ -261,7 +261,7 @@ Lists all channels.
 
 
 
-<a id="commitment_signed"></a>
+<a id="channel-commitment_signed"></a>
 #### Method `commitment_signed`
 
 Sends a commitment_signed message to the peer.
@@ -279,7 +279,7 @@ Sends a commitment_signed message to the peer.
 
 
 
-<a id="add_tlc"></a>
+<a id="channel-add_tlc"></a>
 #### Method `add_tlc`
 
 Adds a TLC to a channel.
@@ -302,7 +302,7 @@ Adds a TLC to a channel.
 
 
 
-<a id="remove_tlc"></a>
+<a id="channel-remove_tlc"></a>
 #### Method `remove_tlc`
 
 Removes a TLC from a channel.
@@ -322,7 +322,7 @@ Removes a TLC from a channel.
 
 
 
-<a id="shutdown_channel"></a>
+<a id="channel-shutdown_channel"></a>
 #### Method `shutdown_channel`
 
 Shuts down a channel.
@@ -343,7 +343,7 @@ Shuts down a channel.
 
 
 
-<a id="update_channel"></a>
+<a id="channel-update_channel"></a>
 #### Method `update_channel`
 
 Updates a channel.
@@ -366,7 +366,7 @@ Updates a channel.
 
 
 
-<a id="send_payment"></a>
+<a id="channel-send_payment"></a>
 #### Method `send_payment`
 
 Sends a payment to a peer.
@@ -400,7 +400,7 @@ FIXME: this should be optional when AMP is enabled
 
 
 
-<a id="get_payment"></a>
+<a id="channel-get_payment"></a>
 #### Method `get_payment`
 
 Retrieves a payment.
@@ -428,7 +428,7 @@ Retrieves a payment.
 RPC module for graph management.
 
 
-<a id="graph_nodes"></a>
+<a id="graph-graph_nodes"></a>
 #### Method `graph_nodes`
 
 TODO: add desc
@@ -449,7 +449,7 @@ TODO: add desc
 
 
 
-<a id="graph_channels"></a>
+<a id="graph-graph_channels"></a>
 #### Method `graph_channels`
 
 TODO: add desc
@@ -475,7 +475,7 @@ TODO: add desc
 RPC module for invoice management.
 
 
-<a id="new_invoice"></a>
+<a id="invoice-new_invoice"></a>
 #### Method `new_invoice`
 
 Generates a new invoice.
@@ -504,7 +504,7 @@ Generates a new invoice.
 
 
 
-<a id="parse_invoice"></a>
+<a id="invoice-parse_invoice"></a>
 #### Method `parse_invoice`
 
 Parses a encoded invoice.
@@ -523,7 +523,7 @@ Parses a encoded invoice.
 
 
 
-<a id="get_invoice"></a>
+<a id="invoice-get_invoice"></a>
 #### Method `get_invoice`
 
 Retrieves an invoice.
@@ -549,7 +549,7 @@ Retrieves an invoice.
 The RPC module for node information.
 
 
-<a id="node_info"></a>
+<a id="info-node_info"></a>
 #### Method `node_info`
 
 Get the node information.
@@ -589,7 +589,7 @@ Get the node information.
 RPC module for peer management.
 
 
-<a id="connect_peer"></a>
+<a id="peer-connect_peer"></a>
 #### Method `connect_peer`
 
 Connect to a peer.
@@ -608,7 +608,7 @@ Connect to a peer.
 
 
 
-<a id="disconnect_peer"></a>
+<a id="peer-disconnect_peer"></a>
 #### Method `disconnect_peer`
 
 Disconnect from a peer.

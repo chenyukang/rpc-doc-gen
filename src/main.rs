@@ -105,11 +105,11 @@ impl Module {
             .map(|(fn_name, args, ret_ty, desc)| {
                 let params = self.convert_types(args);
                 let return_type = self.convert_types(&[ret_ty.clone()]);
-
+                let link = format!("{}-{}", name.to_lowercase(), fn_name);
                 render_tera(
                     include_str!("../templates/method.tera"),
                     &[
-                        ("link", fn_name.clone().into()),
+                        ("link", link.clone().into()),
                         ("desc", desc.clone().into()),
                         ("name", fn_name.clone().into()),
                         ("params", params.into()),
