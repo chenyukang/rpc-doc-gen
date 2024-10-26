@@ -13,8 +13,9 @@ use walkdir::WalkDir;
 #[derive(Debug)]
 pub(crate) struct Module {
     pub name: String,
-    pub types: Vec<(String, Vec<(String, String)>)>,
-    pub rpc_fns: Vec<(String, Vec<String>, String)>,
+    pub types: Vec<(String, Vec<(String, String, String)>)>,
+    pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
+    pub desc: String,
 }
 
 impl Module {
@@ -23,22 +24,27 @@ impl Module {
             name,
             types: vec![],
             rpc_fns: vec![],
+            desc: "".to_string(),
         }
     }
 
-    pub fn add_struct_type(&mut self, name: String, fields: Vec<(String, String)>) {
+    pub fn set_desc(&mut self, desc: String) {
+        self.desc = desc;
+    }
+
+    pub fn add_struct_type(&mut self, name: String, fields: Vec<(String, String, String)>) {
         self.types.push((name, fields));
     }
 
-    pub fn add_rpc_fn(&mut self, name: String, args: Vec<String>, ret_ty: String) {
-        self.rpc_fns.push((name, args, ret_ty));
+    pub fn add_rpc_fn(&mut self, name: String, args: Vec<String>, ret_ty: String, desc: String) {
+        self.rpc_fns.push((name, args, ret_ty, desc));
     }
 
     pub fn gen_menu(&self) -> Value {
         let method_names = self
             .rpc_fns
             .iter()
-            .map(|(name, _, _)| name.clone())
+            .map(|(name, _, _, _)| name.clone())
             .collect::<Vec<_>>();
         let capital_name = utils::capitalize(&self.name);
         utils::gen_value(&[
@@ -57,10 +63,11 @@ impl Module {
                 .map(|(_name, fields)| {
                     let fields: Vec<Value> = fields
                         .iter()
-                        .map(|(field_name, field_type)| {
+                        .map(|(field_name, field_type, desc)| {
                             utils::gen_value(&[
                                 ("name", field_name.clone().into()),
-                                ("desc", field_type.clone().into()),
+                                ("type", field_type.clone().into()),
+                                ("desc", desc.clone().into()),
                             ])
                         })
                         .collect::<Vec<_>>();
@@ -71,7 +78,8 @@ impl Module {
                 .unwrap_or_else(|| {
                     result.push(utils::gen_value(&[
                         ("name", arg.clone().into()),
-                        ("desc", arg.clone().into()),
+                        ("type", arg.clone().into()),
+                        ("desc", "".to_string().into()),
                     ]));
                 })
         });
@@ -84,15 +92,14 @@ impl Module {
         let methods: Value = self
             .rpc_fns
             .iter()
-            .map(|(name, args, ret_ty)| {
-                eprintln!("args len: {:#?}", args.len());
+            .map(|(name, args, ret_ty, desc)| {
                 let params = self.convert_types(args);
                 let return_type = self.convert_types(&[ret_ty.clone()]);
                 render_tera(
                     include_str!("../templates/method.tera"),
                     &[
                         ("link", name.clone().into()),
-                        ("desc", name.clone().into()),
+                        ("desc", desc.clone().into()),
                         ("name", name.clone().into()),
                         ("params", params.into()),
                         ("return_type", return_type.into()),
@@ -105,8 +112,8 @@ impl Module {
             include_str!("../templates/module.tera"),
             &[
                 ("name", name.clone().into()),
-                ("desc", name.into()),
                 ("link", link.into()),
+                ("desc", self.desc.clone().into()),
                 ("methods", methods),
             ],
         )
@@ -136,7 +143,6 @@ impl Visit<'_> for SynVisitor {
 
     fn visit_item_struct(&mut self, i: &syn::ItemStruct) {
         let ident_name = i.ident.to_string();
-        eprintln!("visit_item_struct: {:?}", ident_name);
         if !i.attrs.is_empty() {
             self.current_type = Some(ident_name.clone());
 
@@ -145,7 +151,7 @@ impl Visit<'_> for SynVisitor {
             }
             let mut fields = vec![];
             for field in &i.fields {
-                eprintln!("field: {:?}", field);
+                let desc = utils::get_doc_from_attrs(&field.attrs);
                 let filed_type = field.ty.clone();
                 let field_name = field
                     .ident
@@ -161,7 +167,7 @@ impl Visit<'_> for SynVisitor {
                     _ => vec![],
                 }
                 .join("::");
-                fields.push((field_name, type_token));
+                fields.push((field_name, type_token, desc));
             }
             self.current_module
                 .as_mut()
@@ -183,9 +189,12 @@ impl Visit<'_> for SynVisitor {
     }
 
     fn visit_item_trait(&mut self, trait_item: &'_ syn::ItemTrait) {
+        let desc = utils::get_doc_from_attrs(&trait_item.attrs);
+        eprintln!("module desc: {:?}", desc);
+        self.current_module.as_mut().unwrap().set_desc(desc);
         for i in trait_item.items.iter() {
             if let syn::TraitItem::Fn(item_fn) = i {
-                eprintln!("visit_item_trait: {:?}", item_fn.sig.ident);
+                let desc = utils::get_doc_from_attrs(&item_fn.attrs);
                 let args: Vec<_> = item_fn
                     .sig
                     .inputs
@@ -203,14 +212,11 @@ impl Visit<'_> for SynVisitor {
                     })
                     .collect();
                 let ret_ty = utils::get_rpc_return_type(&item_fn.sig.output);
-                eprintln!("ret_ty: {:#?}", ret_ty);
-                for arg in &args {
-                    eprintln!("arg: {:#?}", arg);
-                }
                 self.current_module.as_mut().unwrap().add_rpc_fn(
                     item_fn.sig.ident.to_string(),
                     args,
                     ret_ty,
+                    desc,
                 );
 
                 for attr in &item_fn.attrs {
@@ -250,7 +256,6 @@ impl SynVisitor {
         let code = std::fs::read_to_string(file_path).unwrap();
         if let Ok(tokens) = code.parse() {
             if let Ok(file) = parse2(tokens) {
-                eprintln!("visiting file: {:?}", file_path);
                 let module_name = file_path.file_stem().unwrap().to_string_lossy();
                 self.current_module = Some(Module::new(module_name.to_string()));
                 self.visit_file(&file);
@@ -336,7 +341,7 @@ fn render_tera(template: &str, content: &[(&str, Value)]) -> String {
 fn main() {
     let arg = std::env::args().nth(1);
     let finder = SynVisitor::new(Path::new(&arg.unwrap()));
-    eprintln!("finder: {:#?}", finder);
+    //eprintln!("finder: {:#?}", finder);
     finder.gen_markdown("./README.md");
     //finder.display();
 }

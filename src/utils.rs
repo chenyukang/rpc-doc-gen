@@ -19,6 +19,20 @@ pub fn get_doc_from_attr(attr: &syn::Attribute) -> String {
     "".to_string()
 }
 
+pub fn get_doc_from_attrs(attrs: &[syn::Attribute]) -> String {
+    let mut res = "".to_string();
+    for attr in attrs.iter() {
+        let doc = get_doc_from_attr(attr);
+        res += &format!("\n{}", doc.trim_start());
+    }
+    let res = res.trim().to_string();
+    if res.is_empty() {
+        "TODO: add desc".to_string()
+    } else {
+        res
+    }
+}
+
 pub fn get_ident_from_path(path: &syn::Path) -> String {
     path.segments
         .iter()
