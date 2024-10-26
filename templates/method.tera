@@ -1,0 +1,17 @@
+
+<a id="{{ link }}"></a>
+#### Method `{{ name }}`
+
+{{desc}}
+
+###### Params
+
+{% for field in params %}
+* `{{ field["name"] }}` - {{ field["desc"] }}
+{%- endfor %}
+
+###### Returns
+
+{% for field in return_type %}
+* `{{ field["name"] }}` - {{ field["desc"] }}
+{%- endfor %}

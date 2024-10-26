@@ -1,0 +1,8 @@
+<a id="{{link}}"></a>
+### Module `{{name}}`
+
+{{desc}}
+
+{% for method in methods %}
+{{method}}
+{%- endfor %}
