@@ -309,7 +309,7 @@ impl SynVisitor {
                     if !e.file_name().to_string_lossy().starts_with('.')
                         && e.file_name().to_string_lossy().ends_with(".rs") =>
                 {
-                    eprintln!("analysising file: {}", e.path().display());
+                    eprintln!("analysis file: {} ...", e.path().display());
                     finder.visit_source_file(e.path());
                 }
                 _ => (),
@@ -325,17 +325,11 @@ impl SynVisitor {
     }
 
     fn get_modules(&self) -> Vec<Module> {
-        let res: Vec<Module> = self
-            .modules
+        self.modules
             .clone()
             .into_iter()
             .filter(|m| !m.rpc_fns.is_empty())
-            .collect();
-        for m in res.iter() {
-            eprintln!("module: {}", m.name);
-        }
-        eprintln!("total modules: {}", res.len());
-        res
+            .collect()
     }
 
     fn get_should_list_types(&self) -> Vec<String> {
