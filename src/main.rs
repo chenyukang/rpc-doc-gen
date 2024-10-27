@@ -1,8 +1,5 @@
-//! It's bad(sad) JSON Schema currently ignore type alias,
-//! maybe it's better to fix it in schemars, but here we only do a quick hack
-//! here we use a simple syn visitor to find extra type comments
-
-use rpc_doc_gen::utils;
+use clap::Parser;
+use fiber_rpc_gen::utils;
 use std::fmt::Display;
 use std::path::Path;
 use syn::visit::Visit;
@@ -453,8 +450,21 @@ fn render_tera(template: &str, content: &[(&str, Value)]) -> String {
     tera.render("template", &context).unwrap()
 }
 
+#[derive(Parser)]
+#[command(name = "fiber-rpc-gen")]
+#[command(about = "Generates markdown documentation for RPCs in fiber", long_about = None)]
+struct Args {
+    /// RPC directory
+    rpc_dir: String,
+    /// Output file path
+    #[clap(short, long)]
+    output: Option<String>,
+}
+
 fn main() {
-    let arg = std::env::args().nth(1);
-    let finder = SynVisitor::new(Path::new(&arg.unwrap()));
-    finder.gen_markdown("./README.md");
+    let args = Args::parse();
+    let rpc_dir = args.rpc_dir;
+    let finder = SynVisitor::new(Path::new(&rpc_dir));
+    let output_path = args.output.unwrap_or(format!("{}/README.md", rpc_dir));
+    finder.gen_markdown(&output_path);
 }
