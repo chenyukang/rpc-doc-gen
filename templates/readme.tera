@@ -35,7 +35,11 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 
 {{ ty["desc"] }}
 
+{% if ty["type"] == "Enum" %}
+#### Enum with values of
+{%- else %}
 #### Fields
+{%- endif %}
 {% for field in ty["fields"] %}
 * `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
 {%- endfor %}

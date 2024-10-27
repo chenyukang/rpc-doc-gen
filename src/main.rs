@@ -3,7 +3,7 @@
 //! here we use a simple syn visitor to find extra type comments
 
 use rpc_doc_gen::utils;
-use std::collections::HashMap;
+use std::fmt::Display;
 use std::path::Path;
 use syn::visit::Visit;
 use syn::{parse2, Type};
@@ -11,11 +11,26 @@ use tera::{Tera, Value};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone)]
+enum ItemType {
+    Struct,
+    Enum,
+}
+
+impl Display for ItemType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ItemType::Struct => write!(f, "Struct"),
+            ItemType::Enum => write!(f, "Enum"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct Module {
     pub name: String,
-    //               (name, fields(name, type, desc), desc)
-    pub types: Vec<(String, Vec<(String, String, String)>, String)>,
-    //               (name, args, ret_ty, desc)
+    //  (name, fields(name, type, desc), desc)
+    pub types: Vec<(ItemType, String, Vec<(String, String, String)>, String)>,
+    // (name, args, ret_ty, desc)
     pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
     pub desc: String,
 }
@@ -36,11 +51,12 @@ impl Module {
 
     pub fn add_struct_type(
         &mut self,
+        ty: ItemType,
         name: String,
         fields: Vec<(String, String, String)>,
         desc: String,
     ) {
-        self.types.push((name, fields, desc));
+        self.types.push((ty, name, fields, desc));
     }
 
     pub fn add_rpc_fn(&mut self, name: String, args: Vec<String>, ret_ty: String, desc: String) {
@@ -66,8 +82,8 @@ impl Module {
         types.iter().for_each(|arg| {
             self.types
                 .iter()
-                .find(|(name, ..)| name == arg)
-                .map(|(_name, fields, _)| {
+                .find(|(_, name, ..)| name == arg)
+                .map(|(_, _, fields, _)| {
                     let fields: Vec<Value> = fields
                         .iter()
                         .map(|(field_name, field_type, desc)| {
@@ -148,38 +164,52 @@ impl Module {
 
 #[derive(Debug)]
 pub(crate) struct SynVisitor {
-    pub type_comments: HashMap<String, String>,
-    current_type: Option<String>,
     current_module: Option<Module>,
     modules: Vec<Module>,
 }
 
 impl Visit<'_> for SynVisitor {
-    fn visit_attribute(&mut self, attr: &syn::Attribute) {
-        if let Some(type_name) = &self.current_type {
-            let doc = utils::get_doc_from_attr(attr);
-            let current_type = type_name.clone();
-            *self
-                .type_comments
-                .entry(current_type)
-                .or_insert("".to_string()) += &format!("\n{}", doc);
+    fn visit_item_enum(&mut self, i: &'_ syn::ItemEnum) {
+        let enum_name = i.ident.to_string();
+        let desc = utils::get_doc_from_attrs(&i.attrs);
+        let mut fields = vec![];
+        for v in &i.variants {
+            let field_name = v.ident.to_string();
+            let desc = utils::get_doc_from_attrs(&v.attrs);
+            let field_type = match &v.fields {
+                syn::Fields::Unnamed(fields) => {
+                    if let syn::Type::Path(syn::TypePath { path, .. }) =
+                        fields.unnamed.first().unwrap().ty.clone()
+                    {
+                        utils::get_ident_from_path(&path)
+                    } else {
+                        "".to_string()
+                    }
+                }
+                _ => "".to_string(),
+            };
+            fields.push((field_name, field_type, desc));
         }
+        self.current_module.as_mut().unwrap().add_struct_type(
+            ItemType::Enum,
+            enum_name,
+            fields,
+            desc,
+        );
     }
 
     fn visit_item_struct(&mut self, i: &syn::ItemStruct) {
         let ident_name = i.ident.to_string();
-        self.current_type = Some(ident_name.clone());
         let desc = utils::get_doc_from_attrs(&i.attrs);
         let mut fields = vec![];
         for field in &i.fields {
             let desc = utils::get_doc_from_attrs(&field.attrs);
-            let filed_type = field.ty.clone();
             let field_name = field
                 .ident
                 .as_ref()
                 .map(|i| i.to_string())
                 .unwrap_or_default();
-            let type_token = match filed_type {
+            let field_type = match field.ty.clone() {
                 syn::Type::Path(syn::TypePath {
                     path: syn::Path { segments, .. },
                     ..
@@ -212,13 +242,14 @@ impl Visit<'_> for SynVisitor {
                 _ => vec![],
             }
             .join("::");
-            fields.push((field_name, type_token, desc));
+            fields.push((field_name, field_type, desc));
         }
-        self.current_module
-            .as_mut()
-            .unwrap()
-            .add_struct_type(ident_name, fields, desc);
-        self.current_type = None;
+        self.current_module.as_mut().unwrap().add_struct_type(
+            ItemType::Struct,
+            ident_name,
+            fields,
+            desc,
+        );
     }
 
     fn visit_item_trait(&mut self, trait_item: &'_ syn::ItemTrait) {
@@ -253,26 +284,6 @@ impl Visit<'_> for SynVisitor {
             }
         }
     }
-
-    fn visit_item_enum(&mut self, i: &'_ syn::ItemEnum) {
-        let ident_name = i.ident.to_string();
-
-        self.current_type = Some(ident_name);
-        let mut variants = vec![];
-        for v in &i.variants {
-            if !v.attrs.is_empty() {
-                let doc: Vec<String> = v.attrs.iter().map(utils::get_doc_from_attr).collect();
-                let doc = doc.join("\n");
-                variants.push(format!("  - `{}` : {}", v.ident, doc));
-            }
-        }
-        let extra_doc = variants.join("\n");
-        *self
-            .type_comments
-            .entry(i.ident.to_string())
-            .or_insert("".to_string()) += &format!("An enum value from one of:\n{}", extra_doc);
-        self.current_type = None;
-    }
 }
 
 impl SynVisitor {
@@ -291,8 +302,6 @@ impl SynVisitor {
 
     pub fn new(dir: &Path) -> SynVisitor {
         let mut finder = SynVisitor {
-            type_comments: Default::default(),
-            current_type: None,
             current_module: None,
             modules: vec![],
         };
@@ -303,6 +312,7 @@ impl SynVisitor {
                     if !e.file_name().to_string_lossy().starts_with('.')
                         && e.file_name().to_string_lossy().ends_with(".rs") =>
                 {
+                    eprintln!("analysising file: {}", e.path().display());
                     finder.visit_source_file(e.path());
                 }
                 _ => (),
@@ -332,17 +342,19 @@ impl SynVisitor {
             .flat_map(|m| m.types.into_iter())
             .collect::<Vec<_>>();
         for m in &self.modules {
-            for (_, ty, ..) in &m.types {
+            for (_, _, ty, ..) in &m.types {
                 for (_, t, ..) in ty.iter() {
                     if let Some((_first_type, generic_type)) = t.split_once('$') {
                         should_list_types.push(generic_type.to_string());
+                    } else {
+                        should_list_types.push(t.clone());
                     }
                 }
             }
         }
         should_list_types = should_list_types
             .into_iter()
-            .filter(|t| all_types.iter().find(|(name, ..)| name == t).is_some())
+            .filter(|t| all_types.iter().find(|(_, name, ..)| name == t).is_some())
             .collect();
         should_list_types.sort();
         should_list_types.dedup();
@@ -369,13 +381,13 @@ impl SynVisitor {
             .into_iter()
             .flat_map(|m| m.types.into_iter())
             .collect::<Vec<_>>();
-        let all_tyeps = all_types
+        let gen_types = all_types
             .into_iter()
-            .filter(|(name, ..)| should_list_types.iter().find(|t| *t == name).is_some())
+            .filter(|(_, name, ..)| should_list_types.iter().find(|t| *t == name).is_some())
             .collect::<Vec<_>>();
 
         let mut result = vec![];
-        for (name, fields, desc) in all_tyeps {
+        for (item_type, name, fields, desc) in gen_types {
             let fields: Vec<Value> = fields
                 .iter()
                 .map(|(field_name, field_type, desc)| {
@@ -393,6 +405,7 @@ impl SynVisitor {
                 })
                 .collect();
             result.push(utils::gen_value(&[
+                ("type", item_type.to_string().into()),
                 ("name", name.clone().into()),
                 ("link", name.to_lowercase().into()),
                 ("desc", desc.clone().into()),

@@ -46,9 +46,13 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 
     * [Type `Channel`](#type-channel)
     * [Type `ChannelInfo`](#type-channelinfo)
+    * [Type `InvoiceStatus`](#type-invoicestatus)
     * [Type `NodeInfo`](#type-nodeinfo)
+    * [Type `RemoveTlcReason`](#type-removetlcreason)
     * [Type `UdtArgInfo`](#type-udtarginfo)
     * [Type `UdtCellDep`](#type-udtcelldep)
+    * [Type `UdtCfgInfos`](#type-udtcfginfos)
+    * [Type `UdtScript`](#type-udtscript)
 ## RPC Modules
 
 <a id="cch"></a>
@@ -501,6 +505,7 @@ Disconnect from a peer.
 
 TODO: add desc
 
+
 #### Fields
 
 * `channel_id` - Hash256, The channel ID
@@ -513,10 +518,34 @@ TODO: add desc
 * `received_tlc_balance` - u128, The received balance of the channel
 * `created_at` - u64, The time the channel was created at
 
+<a id="#type-removetlcreason"></a>
+### Type `RemoveTlcReason`
+
+TODO: add desc
+
+
+#### Enum with values of
+
+* `RemoveTlcFulfill` - , The reason for removing the TLC is that it was fulfilled
+* `RemoveTlcFail` - , The reason for removing the TLC is that it failed
+
+<a id="#type-udtscript"></a>
+### Type `UdtScript`
+
+TODO: add desc
+
+
+#### Fields
+
+* `code_hash` - H256, The code hash of the script.
+* `hash_type` - ScriptHashType, The hash type of the script.
+* `args` - String, The arguments of the script.
+
 <a id="#type-udtcelldep"></a>
 ### Type `UdtCellDep`
 
 TODO: add desc
+
 
 #### Fields
 
@@ -529,6 +558,7 @@ TODO: add desc
 
 TODO: add desc
 
+
 #### Fields
 
 * `name` - String, The name of the UDT.
@@ -536,10 +566,21 @@ TODO: add desc
 * `auto_accept_amount` - `Option<u128>`, The minimum amount of the UDT that can be automatically accepted.
 * `cell_deps` - `Vec<UdtCellDep>`, The cell deps of the UDT.
 
+<a id="#type-udtcfginfos"></a>
+### Type `UdtCfgInfos`
+
+TODO: add desc
+
+
+#### Fields
+
+* `` - `Vec<UdtArgInfo>`, TODO: add desc
+
 <a id="#type-nodeinfo"></a>
 ### Type `NodeInfo`
 
 TODO: add desc
+
 
 #### Fields
 
@@ -556,6 +597,7 @@ TODO: add desc
 
 TODO: add desc
 
+
 #### Fields
 
 * `channel_outpoint` - OutPoint, The outpoint of the channel.
@@ -570,4 +612,17 @@ TODO: add desc
 * `capacity` - u128, The capacity of the channel.
 * `chain_hash` - Hash256, The chain hash of the channel.
 * `udt_type_script` - `Option<Script>`, The UDT type script of the channel.
+
+<a id="#type-invoicestatus"></a>
+### Type `InvoiceStatus`
+
+TODO: add desc
+
+
+#### Enum with values of
+
+* `Unpaid` - , The invoice is unpaid.
+* `Inflight` - , The invoice is in flight.
+* `Paid` - , The invoice is paid, the payment is successful.
+* `Expired` - , The invoice is expired, can'b be used anymore.
 
