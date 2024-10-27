@@ -281,9 +281,10 @@ dependencies = [
 
 [[package]]
 name = "fiber-rpc-gen"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
+ "libm",
  "proc-macro2",
  "syn",
  "tera",
