@@ -13,7 +13,9 @@ use walkdir::WalkDir;
 #[derive(Debug, Clone)]
 pub(crate) struct Module {
     pub name: String,
-    pub types: Vec<(String, Vec<(String, String, String)>)>,
+    //              (name, fields(name, type, desc), desc)
+    pub types: Vec<(String, Vec<(String, String, String)>, String)>,
+    //               (name, args, ret_ty, desc)
     pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
     pub desc: String,
 }
@@ -32,8 +34,13 @@ impl Module {
         self.desc = desc;
     }
 
-    pub fn add_struct_type(&mut self, name: String, fields: Vec<(String, String, String)>) {
-        self.types.push((name, fields));
+    pub fn add_struct_type(
+        &mut self,
+        name: String,
+        fields: Vec<(String, String, String)>,
+        desc: String,
+    ) {
+        self.types.push((name, fields, desc));
     }
 
     pub fn add_rpc_fn(&mut self, name: String, args: Vec<String>, ret_ty: String, desc: String) {
@@ -59,11 +66,18 @@ impl Module {
         types.iter().for_each(|arg| {
             self.types
                 .iter()
-                .find(|(name, _)| name == arg)
-                .map(|(_name, fields)| {
+                .find(|(name, ..)| name == arg)
+                .map(|(_name, fields, _)| {
                     let fields: Vec<Value> = fields
                         .iter()
                         .map(|(field_name, field_type, desc)| {
+                            let field_type = if let Some((first_type, field_type)) =
+                                field_type.split_once('$')
+                            {
+                                format!("`{}<{}>`", first_type, field_type)
+                            } else {
+                                field_type.clone()
+                            };
                             utils::gen_value(&[
                                 ("name", field_name.clone().into()),
                                 ("type", field_type.clone().into()),
@@ -148,74 +162,63 @@ impl Visit<'_> for SynVisitor {
             *self
                 .type_comments
                 .entry(current_type)
-                .or_insert("".to_string()) += &format!("\n{}", doc.trim_start());
+                .or_insert("".to_string()) += &format!("\n{}", doc);
         }
     }
 
     fn visit_item_struct(&mut self, i: &syn::ItemStruct) {
         let ident_name = i.ident.to_string();
-        eprintln!("ident_name: {:#?}", ident_name);
-        if !i.attrs.is_empty() {
-            self.current_type = Some(ident_name.clone());
-
-            for attr in &i.attrs {
-                self.visit_attribute(attr);
+        self.current_type = Some(ident_name.clone());
+        let desc = utils::get_doc_from_attrs(&i.attrs);
+        let mut fields = vec![];
+        for field in &i.fields {
+            let desc = utils::get_doc_from_attrs(&field.attrs);
+            let filed_type = field.ty.clone();
+            let field_name = field
+                .ident
+                .as_ref()
+                .map(|i| i.to_string())
+                .unwrap_or_default();
+            let type_token = match filed_type {
+                syn::Type::Path(syn::TypePath {
+                    path: syn::Path { segments, .. },
+                    ..
+                }) => segments
+                    .iter()
+                    .map(|s| match s {
+                        syn::PathSegment {
+                            ident,
+                            arguments: syn::PathArguments::AngleBracketed(args),
+                        } => {
+                            let args = args
+                                .args
+                                .iter()
+                                .map(|arg| {
+                                    if let syn::GenericArgument::Type(syn::Type::Path(
+                                        syn::TypePath { path, .. },
+                                    )) = arg
+                                    {
+                                        utils::get_ident_from_path(path)
+                                    } else {
+                                        "".to_string()
+                                    }
+                                })
+                                .collect::<Vec<_>>();
+                            format!("{}${}", ident, args.join("::").as_str())
+                        }
+                        _ => s.ident.to_string(),
+                    })
+                    .collect::<Vec<_>>(),
+                _ => vec![],
             }
-            let mut fields = vec![];
-            for field in &i.fields {
-                let desc = utils::get_doc_from_attrs(&field.attrs);
-                let filed_type = field.ty.clone();
-                let field_name = field
-                    .ident
-                    .as_ref()
-                    .map(|i| i.to_string())
-                    .unwrap_or_default();
-                eprintln!("filed_type: {:#?}", filed_type);
-                let type_token = match filed_type {
-                    syn::Type::Path(syn::TypePath {
-                        path: syn::Path { segments, .. },
-                        ..
-                    }) => segments
-                        .iter()
-                        .map(|s| match s {
-                            syn::PathSegment {
-                                ident,
-                                arguments: syn::PathArguments::AngleBracketed(args),
-                            } => {
-                                let args = args
-                                    .args
-                                    .iter()
-                                    .map(|arg| {
-                                        if let syn::GenericArgument::Type(syn::Type::Path(
-                                            syn::TypePath { path, .. },
-                                        )) = arg
-                                        {
-                                            utils::get_ident_from_path(path)
-                                        } else {
-                                            "".to_string()
-                                        }
-                                    })
-                                    .collect::<Vec<_>>();
-                                format!("{}<{}>", ident, args.join("::").as_str())
-                            }
-                            _ => {
-                                eprintln!("s: {:#?}", s);
-                                s.ident.to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>(),
-                    _ => vec![],
-                }
-                .join("::");
-                eprintln!("type_token: {:#?}", type_token);
-                fields.push((field_name, type_token, desc));
-            }
-            self.current_module
-                .as_mut()
-                .unwrap()
-                .add_struct_type(ident_name, fields);
-            self.current_type = None;
+            .join("::");
+            fields.push((field_name, type_token, desc));
         }
+        self.current_module
+            .as_mut()
+            .unwrap()
+            .add_struct_type(ident_name, fields, desc);
+        self.current_type = None;
     }
 
     fn visit_item_type(&mut self, i: &ItemType) {
@@ -231,7 +234,6 @@ impl Visit<'_> for SynVisitor {
 
     fn visit_item_trait(&mut self, trait_item: &'_ syn::ItemTrait) {
         let desc = utils::get_doc_from_attrs(&trait_item.attrs);
-        eprintln!("module desc: {:?}", desc);
         self.current_module.as_mut().unwrap().set_desc(desc);
         for i in trait_item.items.iter() {
             if let syn::TraitItem::Fn(item_fn) = i {
@@ -341,15 +343,82 @@ impl SynVisitor {
             .collect()
     }
 
-    fn gen_type_menus(&self) -> Value {
+    fn get_should_list_types(&self) -> Vec<String> {
+        let mut should_list_types = vec![];
         let all_types = self
             .get_modules()
             .into_iter()
-            .flat_map(|m| m.types.into_iter());
-        all_types
-            .map(|(name, _)| vec![name.clone().into(), name.to_lowercase().into()])
-            .collect::<Vec<Vec<Value>>>()
-            .into()
+            .flat_map(|m| m.types.into_iter())
+            .collect::<Vec<_>>();
+        for m in &self.modules {
+            for (_, ty, ..) in &m.types {
+                for (_, t, ..) in ty.iter() {
+                    if let Some((_first_type, generic_type)) = t.split_once('$') {
+                        should_list_types.push(generic_type.to_string());
+                    }
+                }
+            }
+        }
+        should_list_types = should_list_types
+            .into_iter()
+            .filter(|t| all_types.iter().find(|(name, ..)| name == t).is_some())
+            .collect();
+        should_list_types.sort();
+        should_list_types.dedup();
+        should_list_types
+    }
+
+    fn gen_type_menus(&self) -> Value {
+        let should_list_types = self.get_should_list_types();
+        should_list_types
+            .into_iter()
+            .map(|t| {
+                utils::gen_value(&[
+                    ("name", t.clone().into()),
+                    ("link", t.to_lowercase().into()),
+                ])
+            })
+            .collect()
+    }
+
+    fn gen_type_content(&self) -> Value {
+        let should_list_types = self.get_should_list_types();
+        let all_types = self
+            .get_modules()
+            .into_iter()
+            .flat_map(|m| m.types.into_iter())
+            .collect::<Vec<_>>();
+        let all_tyeps = all_types
+            .into_iter()
+            .filter(|(name, ..)| should_list_types.iter().find(|t| *t == name).is_some())
+            .collect::<Vec<_>>();
+
+        let mut result = vec![];
+        for (name, fields, desc) in all_tyeps {
+            let fields: Vec<Value> = fields
+                .iter()
+                .map(|(field_name, field_type, desc)| {
+                    let field_type =
+                        if let Some((first_type, field_type)) = field_type.split_once('$') {
+                            format!("`{}<{}>`", first_type, field_type)
+                        } else {
+                            field_type.clone()
+                        };
+                    utils::gen_value(&[
+                        ("name", field_name.clone().into()),
+                        ("type", field_type.clone().into()),
+                        ("desc", desc.clone().into()),
+                    ])
+                })
+                .collect();
+            result.push(utils::gen_value(&[
+                ("name", name.clone().into()),
+                ("link", name.to_lowercase().into()),
+                ("desc", desc.clone().into()),
+                ("fields", fields.into()),
+            ]));
+        }
+        result.into()
     }
 
     fn gen_module_content(&self) -> Value {
@@ -365,7 +434,7 @@ impl SynVisitor {
         let module_menus: Vec<Value> = self.gen_module_menus();
         let type_menus: Value = self.gen_type_menus();
         let modules: Value = self.gen_module_content();
-        let types: Vec<Value> = vec![];
+        let types: Value = self.gen_type_content();
         let output = render_tera(
             include_str!("../templates/readme.tera"),
             &[

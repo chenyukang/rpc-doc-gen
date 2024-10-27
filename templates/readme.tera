@@ -20,7 +20,7 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 {%- endfor %}
 * [RPC Types](#rpc-types)
 {% for menu in type_menus %}
-    * [Type `{{ menu.0 }}`](#type-{{ menu.1 }})
+    * [Type `{{ menu["name"] }}`](#type-{{ menu["link"] }})
 {%- endfor %}
 ## RPC Modules
 {% for module in modules %}
@@ -28,9 +28,15 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 {%- endfor %}
 
 ## RPC Types
-{% for ty in types %}
-{{ ty["sub_title"]}}
-{{ ty["desc"] }}
-{{ ty["fields"] }}
-{%- endfor %}
 
+{% for ty in types %}
+<a id="#type-{{ ty["link"] }}"></a>
+### Type `{{ ty["name"]}}`
+
+{{ ty["desc"] }}
+
+#### Fields
+{% for field in ty["fields"] %}
+* `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
+{%- endfor %}
+{% endfor %}

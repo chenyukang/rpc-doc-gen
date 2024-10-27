@@ -23,7 +23,7 @@ pub fn get_doc_from_attrs(attrs: &[syn::Attribute]) -> String {
     let mut res = "".to_string();
     for attr in attrs.iter() {
         let doc = get_doc_from_attr(attr);
-        res += &format!("\n{}", doc.trim_start());
+        res += &format!("\n{}", doc);
     }
     let res = res.trim().to_string();
     if res.is_empty() {
