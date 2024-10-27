@@ -154,6 +154,7 @@ impl Visit<'_> for SynVisitor {
 
     fn visit_item_struct(&mut self, i: &syn::ItemStruct) {
         let ident_name = i.ident.to_string();
+        eprintln!("ident_name: {:#?}", ident_name);
         if !i.attrs.is_empty() {
             self.current_type = Some(ident_name.clone());
 
@@ -169,15 +170,44 @@ impl Visit<'_> for SynVisitor {
                     .as_ref()
                     .map(|i| i.to_string())
                     .unwrap_or_default();
+                eprintln!("filed_type: {:#?}", filed_type);
                 let type_token = match filed_type {
-                    syn::Type::Path(syn::TypePath { path, .. }) => path
-                        .segments
+                    syn::Type::Path(syn::TypePath {
+                        path: syn::Path { segments, .. },
+                        ..
+                    }) => segments
                         .iter()
-                        .map(|s| s.ident.to_string())
+                        .map(|s| match s {
+                            syn::PathSegment {
+                                ident,
+                                arguments: syn::PathArguments::AngleBracketed(args),
+                            } => {
+                                let args = args
+                                    .args
+                                    .iter()
+                                    .map(|arg| {
+                                        if let syn::GenericArgument::Type(syn::Type::Path(
+                                            syn::TypePath { path, .. },
+                                        )) = arg
+                                        {
+                                            utils::get_ident_from_path(path)
+                                        } else {
+                                            "".to_string()
+                                        }
+                                    })
+                                    .collect::<Vec<_>>();
+                                format!("{}<{}>", ident, args.join("::").as_str())
+                            }
+                            _ => {
+                                eprintln!("s: {:#?}", s);
+                                s.ident.to_string()
+                            }
+                        })
                         .collect::<Vec<_>>(),
                     _ => vec![],
                 }
                 .join("::");
+                eprintln!("type_token: {:#?}", type_token);
                 fields.push((field_name, type_token, desc));
             }
             self.current_module

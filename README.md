@@ -147,7 +147,7 @@ Receive BTC from a payment hash.
 * `btc_pay_req` - String, Payment request for BTC
 * `payment_hash` - String, Payment hash for the HTLC for both CKB and BTC.
 * `channel_id` - Hash256, Channel ID for the CKB payment.
-* `tlc_id` - Option, TLC ID for the CKB payment.
+* `tlc_id` - Option<u64>, TLC ID for the CKB payment.
 * `amount_sats` - u128, Amount will be received by the payee
 * `fee_sats` - u128, Fee in Satoshis
 * `status` - CchOrderStatus, Order status
@@ -176,7 +176,7 @@ Get receive BTC order by payment hash.
 * `btc_pay_req` - String, Payment request for BTC
 * `payment_hash` - String, Payment hash for the HTLC for both CKB and BTC.
 * `channel_id` - Hash256, Channel ID for the CKB payment.
-* `tlc_id` - Option, TLC ID for the CKB payment.
+* `tlc_id` - Option<u64>, TLC ID for the CKB payment.
 * `amount_sats` - u128, Amount will be received by the payee
 * `fee_sats` - u128, Fee in Satoshis
 * `status` - CchOrderStatus, Order status
@@ -198,18 +198,18 @@ Attempts to open a channel with a peer.
 
 * `peer_id` - PeerId, The peer ID to open a channel with.
 * `funding_amount` - u128, The amount of CKB or UDT to fund the channel with.
-* `public` - Option, Whether this is a public channel (will be broadcasted to network, and can be used to forward TLCs), an optional parameter (default value false).
-* `funding_udt_type_script` - Option, The type script of the UDT to fund the channel with, an optional parameter.
-* `shutdown_script` - Option, The script used to receive the channel balance, an optional parameter, default value is the secp256k1_blake160_sighash_all script corresponding to the configured private key.
-* `commitment_delay_epoch` - Option, The delay time for the commitment transaction, must be an [EpochNumberWithFraction](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/e-i-l-encoding.png) in u64 format, an optional parameter, default value is 24 hours.
-* `commitment_fee_rate` - Option, The fee rate for the commitment transaction, an optional parameter.
-* `funding_fee_rate` - Option, The fee rate for the funding transaction, an optional parameter.
-* `tlc_locktime_expiry_delta` - Option, The expiry delta for the TLC locktime, an optional parameter.
-* `tlc_min_value` - Option, The minimum value for a TLC, an optional parameter.
-* `tlc_max_value` - Option, The maximum value for a TLC, an optional parameter.
-* `tlc_fee_proportional_millionths` - Option, The fee proportional millionths for a TLC, an optional parameter.
-* `max_tlc_value_in_flight` - Option, The maximum value in flight for TLCs, an optional parameter.
-* `max_tlc_number_in_flight` - Option, The maximum number of TLCs that can be accepted, an optional parameter.
+* `public` - Option<bool>, Whether this is a public channel (will be broadcasted to network, and can be used to forward TLCs), an optional parameter (default value false).
+* `funding_udt_type_script` - Option<Script>, The type script of the UDT to fund the channel with, an optional parameter.
+* `shutdown_script` - Option<Script>, The script used to receive the channel balance, an optional parameter, default value is the secp256k1_blake160_sighash_all script corresponding to the configured private key.
+* `commitment_delay_epoch` - Option<EpochNumberWithFraction>, The delay time for the commitment transaction, must be an [EpochNumberWithFraction](https://github.com/nervosnetwork/rfcs/blob/master/rfcs/0017-tx-valid-since/e-i-l-encoding.png) in u64 format, an optional parameter, default value is 24 hours.
+* `commitment_fee_rate` - Option<u64>, The fee rate for the commitment transaction, an optional parameter.
+* `funding_fee_rate` - Option<u64>, The fee rate for the funding transaction, an optional parameter.
+* `tlc_locktime_expiry_delta` - Option<u64>, The expiry delta for the TLC locktime, an optional parameter.
+* `tlc_min_value` - Option<u128>, The minimum value for a TLC, an optional parameter.
+* `tlc_max_value` - Option<u128>, The maximum value for a TLC, an optional parameter.
+* `tlc_fee_proportional_millionths` - Option<u128>, The fee proportional millionths for a TLC, an optional parameter.
+* `max_tlc_value_in_flight` - Option<u128>, The maximum value in flight for TLCs, an optional parameter.
+* `max_tlc_number_in_flight` - Option<u64>, The maximum number of TLCs that can be accepted, an optional parameter.
 
 
 ###### Returns
@@ -230,7 +230,7 @@ Accepts a channel opening request from a peer.
 
 * `temporary_channel_id` - Hash256, The temporary channel ID of the channel to accept
 * `funding_amount` - u128, The amount of CKB or UDT to fund the channel with
-* `shutdown_script` - Option, The script used to receive the channel balance, an optional parameter,
+* `shutdown_script` - Option<Script>, The script used to receive the channel balance, an optional parameter,
 default value is the secp256k1_blake160_sighash_all script corresponding to the configured private key
 
 
@@ -250,14 +250,14 @@ Lists all channels.
 ###### Params
 
 
-* `peer_id` - Option, The peer ID to list channels for, an optional parameter, if not provided, all channels will be listed
+* `peer_id` - Option<PeerId>, The peer ID to list channels for, an optional parameter, if not provided, all channels will be listed
 
 
 ###### Returns
 
 
 
-* `channels` - Vec, The list of channels
+* `channels` - Vec<Channel>, The list of channels
 
 
 
@@ -291,7 +291,7 @@ Adds a TLC to a channel.
 * `amount` - u128, The amount of the TLC
 * `payment_hash` - Hash256, The payment hash of the TLC
 * `expiry` - LockTime, The expiry of the TLC
-* `hash_algorithm` - Option, The hash algorithm of the TLC
+* `hash_algorithm` - Option<HashAlgorithm>, The hash algorithm of the TLC
 
 
 ###### Returns
@@ -332,7 +332,7 @@ Shuts down a channel.
 
 * `channel_id` - Hash256, The channel ID of the channel to shut down
 * `close_script` - Script, The script used to receive the channel balance, only support secp256k1_blake160_sighash_all script for now
-* `force` - Option, Whether to force the channel to close
+* `force` - Option<bool>, Whether to force the channel to close
 * `fee_rate` - u64, The fee rate for the closing transaction, the fee will be deducted from the closing initiator's channel balance
 
 
@@ -352,11 +352,11 @@ Updates a channel.
 
 
 * `channel_id` - Hash256, The channel ID of the channel to update
-* `enabled` - Option, Whether the channel is enabled
-* `tlc_locktime_expiry_delta` - Option, The CLTV delta from the current height that should be used to set the timelock for the final hop
-* `tlc_minimum_value` - Option, The minimum value for a TLC
-* `tlc_maximum_value` - Option, The maximum value for a TLC
-* `tlc_fee_proportional_millionths` - Option, The fee proportional millionths for a TLC
+* `enabled` - Option<bool>, Whether the channel is enabled
+* `tlc_locktime_expiry_delta` - Option<u64>, The CLTV delta from the current height that should be used to set the timelock for the final hop
+* `tlc_minimum_value` - Option<u128>, The minimum value for a TLC
+* `tlc_maximum_value` - Option<u128>, The maximum value for a TLC
+* `tlc_fee_proportional_millionths` - Option<u128>, The fee proportional millionths for a TLC
 
 
 ###### Returns
@@ -374,18 +374,18 @@ Sends a payment to a peer.
 ###### Params
 
 
-* `target_pubkey` - Option, the identifier of the payment target
-* `amount` - Option, the amount of the payment
-* `payment_hash` - Option, The hash to use within the payment's HTLC
+* `target_pubkey` - Option<Pubkey>, the identifier of the payment target
+* `amount` - Option<u128>, the amount of the payment
+* `payment_hash` - Option<Hash256>, The hash to use within the payment's HTLC
 FIXME: this should be optional when AMP is enabled
-* `final_cltv_delta` - Option, The CLTV delta from the current height that should be used to set the timelock for the final hop
-* `invoice` - Option, the encoded invoice to send to the recipient
-* `timeout` - Option, the payment timeout in seconds, if the payment is not completed within this time, it will be cancelled
-* `max_fee_amount` - Option, the maximum fee amounts in shannons that the sender is willing to pay
-* `max_parts` - Option, max parts for the payment, only used for multi-part payments
-* `keysend` - Option, keysend payment
-* `udt_type_script` - Option, udt type script for the payment
-* `allow_self_payment` - Option, allow self payment, default is false
+* `final_cltv_delta` - Option<u64>, The CLTV delta from the current height that should be used to set the timelock for the final hop
+* `invoice` - Option<String>, the encoded invoice to send to the recipient
+* `timeout` - Option<u64>, the payment timeout in seconds, if the payment is not completed within this time, it will be cancelled
+* `max_fee_amount` - Option<u128>, the maximum fee amounts in shannons that the sender is willing to pay
+* `max_parts` - Option<u64>, max parts for the payment, only used for multi-part payments
+* `keysend` - Option<bool>, keysend payment
+* `udt_type_script` - Option<Script>, udt type script for the payment
+* `allow_self_payment` - Option<bool>, allow self payment, default is false
 
 
 ###### Returns
@@ -396,7 +396,7 @@ FIXME: this should be optional when AMP is enabled
 * `status` - PaymentSessionStatus, The status of the payment
 * `created_at` - u128, The time the payment was created at
 * `last_updated_at` - u128, The time the payment was last updated at
-* `failed_error` - Option, The error message if the payment failed
+* `failed_error` - Option<String>, The error message if the payment failed
 
 
 
@@ -419,7 +419,7 @@ Retrieves a payment.
 * `status` - PaymentSessionStatus, The status of the payment
 * `created_at` - u128, The time the payment was created at
 * `last_updated_at` - u128, The time the payment was last updated at
-* `failed_error` - Option, The error message if the payment failed
+* `failed_error` - Option<String>, The error message if the payment failed
 
 
 
@@ -436,15 +436,15 @@ TODO: add desc
 ###### Params
 
 
-* `limit` - Option, The maximum number of nodes to return.
-* `after` - Option, The cursor to start returning nodes from.
+* `limit` - Option<u64>, The maximum number of nodes to return.
+* `after` - Option<JsonBytes>, The cursor to start returning nodes from.
 
 
 ###### Returns
 
 
 
-* `nodes` - Vec, The list of nodes.
+* `nodes` - Vec<NodeInfo>, The list of nodes.
 * `last_cursor` - JsonBytes, The last cursor.
 
 
@@ -457,15 +457,15 @@ TODO: add desc
 ###### Params
 
 
-* `limit` - Option, The maximum number of channels to return.
-* `after` - Option, The cursor to start returning channels from.
+* `limit` - Option<u64>, The maximum number of channels to return.
+* `after` - Option<JsonBytes>, The cursor to start returning channels from.
 
 
 ###### Returns
 
 
 
-* `channels` - Vec, TODO: add desc
+* `channels` - Vec<ChannelInfo>, TODO: add desc
 * `last_cursor` - JsonBytes, TODO: add desc
 
 
@@ -484,15 +484,15 @@ Generates a new invoice.
 
 
 * `amount` - u128, The amount of the invoice.
-* `description` - Option, The description of the invoice.
+* `description` - Option<String>, The description of the invoice.
 * `currency` - Currency, The currency of the invoice.
 * `payment_preimage` - Hash256, The payment preimage of the invoice.
-* `expiry` - Option, The expiry time of the invoice.
-* `fallback_address` - Option, The fallback address of the invoice.
-* `final_cltv` - Option, The final CLTV of the invoice.
-* `final_htlc_timeout` - Option, The final HTLC timeout of the invoice.
-* `udt_type_script` - Option, The UDT type script of the invoice.
-* `hash_algorithm` - Option, The hash algorithm of the invoice.
+* `expiry` - Option<u64>, The expiry time of the invoice.
+* `fallback_address` - Option<String>, The fallback address of the invoice.
+* `final_cltv` - Option<u64>, The final CLTV of the invoice.
+* `final_htlc_timeout` - Option<u64>, The final HTLC timeout of the invoice.
+* `udt_type_script` - Option<Script>, The UDT type script of the invoice.
+* `hash_algorithm` - Option<HashAlgorithm>, The hash algorithm of the invoice.
 
 
 ###### Returns
@@ -566,9 +566,9 @@ Get the node information.
 * `version` - String, The version of the node software.
 * `commit_hash` - String, The commit hash of the node software.
 * `public_key` - Pubkey, The public key of the node.
-* `node_name` - Option, The optional name of the node.
+* `node_name` - Option<String>, The optional name of the node.
 * `peer_id` - PeerId, The peer ID of the node, serialized as a string.
-* `addresses` - Vec, A list of multi-addresses associated with the node.
+* `addresses` - Vec<MultiAddr>, A list of multi-addresses associated with the node.
 * `chain_hash` - Hash256, The hash of the blockchain that the node is connected to.
 * `open_channel_auto_accept_min_ckb_funding_amount` - u64, The minimum CKB funding amount for automatically accepting open channel requests, serialized as a hexadecimal string.
 * `auto_accept_channel_ckb_funding_amount` - u64, The CKB funding amount for automatically accepting channel requests, serialized as a hexadecimal string.
@@ -598,7 +598,7 @@ Connect to a peer.
 
 
 * `address` - MultiAddr, The address of the peer to connect to.
-* `save` - Option, Whether to save the peer address to the peer store.
+* `save` - Option<bool>, Whether to save the peer address to the peer store.
 
 
 ###### Returns
