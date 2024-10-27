@@ -316,11 +316,12 @@ impl SynVisitor {
             }
         }
 
+        finder.modules.sort_by(|a, b| a.name.cmp(&b.name));
         finder
     }
 
     fn gen_module_menus(&self) -> Vec<Value> {
-        self.modules.iter().map(|m| m.gen_menu()).collect()
+        self.get_modules().iter().map(|m| m.gen_menu()).collect()
     }
 
     fn get_modules(&self) -> Vec<Module> {
