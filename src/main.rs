@@ -6,14 +6,14 @@ use rpc_doc_gen::utils;
 use std::collections::HashMap;
 use std::path::Path;
 use syn::visit::Visit;
-use syn::{parse2, ItemType, Type};
+use syn::{parse2, Type};
 use tera::{Tera, Value};
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Module {
     pub name: String,
-    //              (name, fields(name, type, desc), desc)
+    //               (name, fields(name, type, desc), desc)
     pub types: Vec<(String, Vec<(String, String, String)>, String)>,
     //               (name, args, ret_ty, desc)
     pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
@@ -221,17 +221,6 @@ impl Visit<'_> for SynVisitor {
         self.current_type = None;
     }
 
-    fn visit_item_type(&mut self, i: &ItemType) {
-        let ident_name = i.ident.to_string();
-        if !i.attrs.is_empty() {
-            self.current_type = Some(ident_name);
-            for attr in &i.attrs {
-                self.visit_attribute(attr);
-            }
-            self.current_type = None;
-        }
-    }
-
     fn visit_item_trait(&mut self, trait_item: &'_ syn::ItemTrait) {
         let desc = utils::get_doc_from_attrs(&trait_item.attrs);
         self.current_module.as_mut().unwrap().set_desc(desc);
@@ -261,10 +250,6 @@ impl Visit<'_> for SynVisitor {
                     ret_ty,
                     desc,
                 );
-
-                for attr in &item_fn.attrs {
-                    self.visit_attribute(attr);
-                }
             }
         }
     }
@@ -273,10 +258,6 @@ impl Visit<'_> for SynVisitor {
         let ident_name = i.ident.to_string();
 
         self.current_type = Some(ident_name);
-        for attr in &i.attrs {
-            self.visit_attribute(attr);
-        }
-
         let mut variants = vec![];
         for v in &i.variants {
             if !v.attrs.is_empty() {
@@ -462,7 +443,5 @@ fn render_tera(template: &str, content: &[(&str, Value)]) -> String {
 fn main() {
     let arg = std::env::args().nth(1);
     let finder = SynVisitor::new(Path::new(&arg.unwrap()));
-    //eprintln!("finder: {:#?}", finder);
     finder.gen_markdown("./README.md");
-    //finder.display();
 }
