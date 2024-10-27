@@ -325,11 +325,17 @@ impl SynVisitor {
     }
 
     fn get_modules(&self) -> Vec<Module> {
-        self.modules
+        let res: Vec<Module> = self
+            .modules
             .clone()
             .into_iter()
             .filter(|m| !m.rpc_fns.is_empty())
-            .collect()
+            .collect();
+        for m in res.iter() {
+            eprintln!("module: {}", m.name);
+        }
+        eprintln!("total modules: {}", res.len());
+        res
     }
 
     fn get_should_list_types(&self) -> Vec<String> {
