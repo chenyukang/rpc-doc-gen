@@ -174,7 +174,7 @@ impl Visit<'_> for SynVisitor {
             let field_name = v.ident.to_string();
             let desc = utils::get_doc_from_attrs(&v.attrs);
             let field_type = match &v.fields {
-                syn::Fields::Unnamed(fields) => {
+                syn::Fields::Unnamed(fields) if fields.unnamed.len() > 0 => {
                     if let syn::Type::Path(syn::TypePath { path, .. }) =
                         fields.unnamed.first().unwrap().ty.clone()
                     {
