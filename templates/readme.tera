@@ -43,7 +43,7 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 {%- endif %}
 {% for field in ty["fields"] %}
 {%- if field["type"] != "" %}
-* `{{ field["name"] }}` - <em>`{{ field["type"]}}`</em>, {{ field["desc"] }}
+* `{{ field["name"] }}` - <em>{{ field["type"]}}</em>, {{ field["desc"] }}
 {%- else %}
 * `{{ field["name"] }}` - {{ field["desc"] }}
 {%- endif %}

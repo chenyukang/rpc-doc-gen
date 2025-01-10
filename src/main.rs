@@ -22,11 +22,13 @@ impl Display for ItemType {
     }
 }
 
+type TypeDef = (ItemType, String, Vec<(String, String, String)>, String);
+
 #[derive(Debug, Clone)]
 pub(crate) struct Module {
     pub name: String,
     //  (name, fields(name, type, desc), desc)
-    pub types: Vec<(ItemType, String, Vec<(String, String, String)>, String)>,
+    pub types: Vec<TypeDef>,
     // (name, args, ret_ty, desc)
     pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
     pub desc: String,
@@ -76,12 +78,51 @@ impl Module {
         ])
     }
 
-    fn convert_types(&self, types: &[String]) -> Vec<Value> {
+    fn gen_type_link(&self, ty: &str, visitor: &SynVisitor) -> Option<String> {
+        if let Some(ty) = self.find_type(ty, visitor) {
+            let res = Some(format!("#type-{}", ty.1.to_lowercase()));
+            eprintln!("haha {:?}", res);
+            return res;
+        }
+        None
+    }
+
+    fn find_type(&self, ty: &str, visitor: &SynVisitor) -> Option<TypeDef> {
+        if ty == "Currency" {
+            eprintln!("debug here anan : {:?}", ty);
+        }
+        self.types
+            .iter()
+            .find(|(_, name, ..)| name == ty)
+            .cloned()
+            .or_else(|| {
+                eprintln!("debug now {}", ty);
+                if ty == "Currency" {
+                    visitor
+                        .get_non_rpc_modules()
+                        .iter()
+                        .flat_map(|m| m.types.iter())
+                        .map(|(_, name, ..)| name)
+                        .for_each(|n| {
+                            eprintln!("debug haha {:?}", n);
+                        });
+                }
+                let res = visitor
+                    .get_non_rpc_modules()
+                    .iter()
+                    .flat_map(|m| m.types.iter())
+                    .find(|(_, name, ..)| name == ty)
+                    .cloned();
+                eprintln!("debug haha {:?}", res);
+                res
+            })
+    }
+
+    fn convert_types(&self, types: &[String], visitor: &SynVisitor) -> Vec<Value> {
         let mut result = vec![];
         types.iter().for_each(|arg| {
-            self.types
-                .iter()
-                .find(|(_, name, ..)| name == arg)
+            eprintln!("here is arg: {:?}", arg);
+            self.find_type(arg, visitor)
                 .map(|(_, _, fields, _)| {
                     let fields: Vec<Value> = fields
                         .iter()
@@ -89,13 +130,28 @@ impl Module {
                             let field_type = if let Some((first_type, field_type)) =
                                 field_type.split_once('$')
                             {
-                                format!("`{}<{}>`", first_type, field_type)
+                                //eprintln!("debug now {} {}", first_type, field_type);
+                                if let Some(ty_link) = self.gen_type_link(field_type, visitor) {
+                                    format!("{}<[{}]({})>", first_type, field_type, ty_link)
+                                } else {
+                                    format!("{}<{}>", first_type, field_type)
+                                }
                             } else {
-                                field_type.clone()
+                                if let Some(ty_link) = self.gen_type_link(field_type, visitor) {
+                                    format!("[{}]({})", field_type, ty_link)
+                                } else {
+                                    field_type.clone()
+                                }
+                                //field_type.clone()
+                            };
+                            let render_ty = if field_type.contains("#type") {
+                                field_type
+                            } else {
+                                format!("`{}`", field_type)
                             };
                             utils::gen_value(&[
                                 ("name", field_name.clone().into()),
-                                ("type", field_type.clone().into()),
+                                ("type", render_ty.clone().into()),
                                 ("desc", desc.clone().into()),
                             ])
                         })
@@ -125,15 +181,15 @@ impl Module {
             .collect()
     }
 
-    pub fn gen_module_content(&self) -> Value {
+    pub fn gen_module_content(&self, visitor: &SynVisitor) -> Value {
         let name = utils::capitalize(&self.name);
         let link = self.name.to_lowercase();
         let methods: Value = self
             .rpc_fns
             .iter()
             .map(|(fn_name, args, ret_ty, desc)| {
-                let params = self.convert_types(args);
-                let return_type = self.convert_types(&[ret_ty.clone()]);
+                let params = self.convert_types(args, visitor);
+                let return_type = self.convert_types(&[ret_ty.clone()], visitor);
                 let link = format!("{}-{}", name.to_lowercase(), fn_name);
                 render_tera(
                     include_str!("../templates/method.tera"),
@@ -294,6 +350,10 @@ impl SynVisitor {
                 let is_rpc = file_path.to_string_lossy().contains("/rpc/");
                 self.current_module = Some(Module::new(module_name.to_string(), is_rpc));
                 self.visit_file(&file);
+                eprintln!("push module_name: {}, is_rpc: {:?}", module_name, is_rpc);
+                if file_path.to_string_lossy().contains("invoice_impl") {
+                    eprintln!("debug here: {:?}", self.current_module);
+                }
                 self.modules.push(self.current_module.take().unwrap());
                 self.current_module = None;
             }
@@ -312,6 +372,7 @@ impl SynVisitor {
                     if !e.file_name().to_string_lossy().starts_with('.')
                         && e.file_name().to_string_lossy().ends_with(".rs") =>
                 {
+                    eprintln!("visit file: {:?}", e.path());
                     finder.visit_source_file(e.path());
                 }
                 _ => (),
@@ -334,14 +395,23 @@ impl SynVisitor {
             .collect()
     }
 
+    fn get_non_rpc_modules(&self) -> Vec<Module> {
+        self.modules
+            .clone()
+            .into_iter()
+            .filter(|m| !m.is_rpc)
+            .collect()
+    }
+
     fn get_should_list_types(&self) -> Vec<String> {
         let mut should_list_types = vec![];
         let all_types = self
-            .get_modules()
+            .modules
+            .clone()
             .into_iter()
             .flat_map(|m| m.types.into_iter())
             .collect::<Vec<_>>();
-        for m in &self.modules {
+        for m in &self.get_modules() {
             for (_, _, ty, ..) in &m.types {
                 for (_, t, ..) in ty.iter() {
                     if let Some((_first_type, generic_type)) = t.split_once('$') {
@@ -377,7 +447,8 @@ impl SynVisitor {
     fn gen_type_content(&self) -> Value {
         let should_list_types = self.get_should_list_types();
         let all_types = self
-            .get_modules()
+            .modules
+            .clone()
             .into_iter()
             .flat_map(|m| m.types.into_iter())
             .collect::<Vec<_>>();
@@ -419,7 +490,7 @@ impl SynVisitor {
         let content = self
             .get_modules()
             .into_iter()
-            .map(|m| m.gen_module_content())
+            .map(|m| m.gen_module_content(&self))
             .collect::<Vec<_>>();
         content.into()
     }
