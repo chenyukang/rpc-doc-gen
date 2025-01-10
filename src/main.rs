@@ -30,15 +30,17 @@ pub(crate) struct Module {
     // (name, args, ret_ty, desc)
     pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
     pub desc: String,
+    pub is_rpc: bool,
 }
 
 impl Module {
-    pub fn new(name: String) -> Module {
+    pub fn new(name: String, is_rpc: bool) -> Module {
         Module {
             name,
             types: vec![],
             rpc_fns: vec![],
             desc: "".to_string(),
+            is_rpc,
         }
     }
 
@@ -289,7 +291,8 @@ impl SynVisitor {
         if let Ok(tokens) = code.parse() {
             if let Ok(file) = parse2(tokens) {
                 let module_name = file_path.file_stem().unwrap().to_string_lossy();
-                self.current_module = Some(Module::new(module_name.to_string()));
+                let is_rpc = file_path.to_string_lossy().contains("/rpc/");
+                self.current_module = Some(Module::new(module_name.to_string(), is_rpc));
                 self.visit_file(&file);
                 self.modules.push(self.current_module.take().unwrap());
                 self.current_module = None;
@@ -309,7 +312,6 @@ impl SynVisitor {
                     if !e.file_name().to_string_lossy().starts_with('.')
                         && e.file_name().to_string_lossy().ends_with(".rs") =>
                 {
-                    eprintln!("analysis file: {} ...", e.path().display());
                     finder.visit_source_file(e.path());
                 }
                 _ => (),
@@ -328,7 +330,7 @@ impl SynVisitor {
         self.modules
             .clone()
             .into_iter()
-            .filter(|m| !m.rpc_fns.is_empty())
+            .filter(|m| !m.rpc_fns.is_empty() && m.is_rpc)
             .collect()
     }
 
@@ -456,7 +458,7 @@ fn render_tera(template: &str, content: &[(&str, Value)]) -> String {
 #[command(about = "Generates markdown documentation for RPCs in fiber", long_about = None)]
 struct Args {
     /// RPC directory
-    rpc_dir: String,
+    source_code_dir: String,
     /// Output file path
     #[clap(short, long)]
     output: Option<String>,
@@ -464,8 +466,10 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-    let rpc_dir = args.rpc_dir;
-    let finder = SynVisitor::new(Path::new(&rpc_dir));
-    let output_path = args.output.unwrap_or(format!("{}/README.md", rpc_dir));
+    let source_code_dir = args.source_code_dir;
+    let finder = SynVisitor::new(Path::new(&source_code_dir));
+    let output_path = args
+        .output
+        .unwrap_or(format!("{}/rpc/README.md", source_code_dir));
     finder.gen_markdown(&output_path);
 }

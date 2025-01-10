@@ -22,6 +22,7 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 {% for menu in type_menus %}
     * [Type `{{ menu["name"] }}`](#type-{{ menu["link"] }})
 {%- endfor %}
+
 ## RPC Modules
 {% for module in modules %}
 {{module}}
@@ -41,6 +42,11 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 #### Fields
 {%- endif %}
 {% for field in ty["fields"] %}
-* `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
+{%- if field["type"] != "" %}
+* `{{ field["name"] }}` - <em>`{{ field["type"]}}`</em>, {{ field["desc"] }}
+{%- else %}
+* `{{ field["name"] }}` - {{ field["desc"] }}
+{%- endif %}
 {%- endfor %}
+---
 {% endfor %}

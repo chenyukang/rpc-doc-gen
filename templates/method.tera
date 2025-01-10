@@ -7,7 +7,7 @@
 ##### Params
 {%- if params | length %}
 {% for field in params %}
-* `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
+* `{{ field["name"] }}` - <em>`{{ field["type"]}}`</em>, {{ field["desc"] }}
 {%- endfor %}
 {%- else %}
 * None
@@ -16,8 +16,11 @@
 ##### Returns
 {% if return_type | length %}
 {%- for field in return_type %}
-* `{{ field["name"] }}` - {{ field["type"]}}, {{ field["desc"] }}
+* `{{ field["name"] }}` - <em>`{{ field["type"]}}`</em>, {{ field["desc"] }}
 {%- endfor %}
 {%- else %}
 * None
 {%- endif %}
+
+---
+
