@@ -39,7 +39,9 @@ You may refer to the e2e test cases in the `tests/bruno/e2e` directory for examp
 {% if ty["type"] == "Enum" %}
 #### Enum with values of
 {%- else %}
+{%- if ty["fields"] | length != 0 %}
 #### Fields
+{%- endif %}
 {%- endif %}
 {% for field in ty["fields"] %}
 {%- if field["type"] != "" %}

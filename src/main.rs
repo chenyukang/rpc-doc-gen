@@ -7,7 +7,7 @@ use syn::{parse2, Type};
 use tera::{Tera, Value};
 use walkdir::WalkDir;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum ItemType {
     Struct,
     Enum,
@@ -77,150 +77,13 @@ impl Module {
             ("methods", method_names.into()),
         ])
     }
-
-    fn gen_type_link(&self, ty: &str, visitor: &SynVisitor) -> Option<String> {
-        if let Some(ty) = self.find_type(ty, visitor) {
-            let res = Some(format!("#type-{}", ty.1.to_lowercase()));
-            eprintln!("haha {:?}", res);
-            return res;
-        }
-        None
-    }
-
-    fn find_type(&self, ty: &str, visitor: &SynVisitor) -> Option<TypeDef> {
-        if ty == "Currency" {
-            eprintln!("debug here anan : {:?}", ty);
-        }
-        self.types
-            .iter()
-            .find(|(_, name, ..)| name == ty)
-            .cloned()
-            .or_else(|| {
-                eprintln!("debug now {}", ty);
-                if ty == "Currency" {
-                    visitor
-                        .get_non_rpc_modules()
-                        .iter()
-                        .flat_map(|m| m.types.iter())
-                        .map(|(_, name, ..)| name)
-                        .for_each(|n| {
-                            eprintln!("debug haha {:?}", n);
-                        });
-                }
-                let res = visitor
-                    .get_non_rpc_modules()
-                    .iter()
-                    .flat_map(|m| m.types.iter())
-                    .find(|(_, name, ..)| name == ty)
-                    .cloned();
-                eprintln!("debug haha {:?}", res);
-                res
-            })
-    }
-
-    fn convert_types(&self, types: &[String], visitor: &SynVisitor) -> Vec<Value> {
-        let mut result = vec![];
-        types.iter().for_each(|arg| {
-            eprintln!("here is arg: {:?}", arg);
-            self.find_type(arg, visitor)
-                .map(|(_, _, fields, _)| {
-                    let fields: Vec<Value> = fields
-                        .iter()
-                        .map(|(field_name, field_type, desc)| {
-                            let field_type = if let Some((first_type, field_type)) =
-                                field_type.split_once('$')
-                            {
-                                //eprintln!("debug now {} {}", first_type, field_type);
-                                if let Some(ty_link) = self.gen_type_link(field_type, visitor) {
-                                    format!("{}<[{}]({})>", first_type, field_type, ty_link)
-                                } else {
-                                    format!("{}<{}>", first_type, field_type)
-                                }
-                            } else {
-                                if let Some(ty_link) = self.gen_type_link(field_type, visitor) {
-                                    format!("[{}]({})", field_type, ty_link)
-                                } else {
-                                    field_type.clone()
-                                }
-                                //field_type.clone()
-                            };
-                            let render_ty = if field_type.contains("#type") {
-                                field_type
-                            } else {
-                                format!("`{}`", field_type)
-                            };
-                            utils::gen_value(&[
-                                ("name", field_name.clone().into()),
-                                ("type", render_ty.clone().into()),
-                                ("desc", desc.clone().into()),
-                            ])
-                        })
-                        .collect::<Vec<_>>();
-                    for f in fields {
-                        result.push(f);
-                    }
-                })
-                .unwrap_or_else(|| {
-                    result.push(utils::gen_value(&[
-                        ("name", arg.clone().into()),
-                        ("type", arg.clone().into()),
-                        ("desc", "".to_string().into()),
-                    ]));
-                })
-        });
-        // filter the empty type
-        result
-            .into_iter()
-            .filter(|v| {
-                if let Some(v) = v.get("name") {
-                    !v.as_str().unwrap().trim().is_empty()
-                } else {
-                    false
-                }
-            })
-            .collect()
-    }
-
-    pub fn gen_module_content(&self, visitor: &SynVisitor) -> Value {
-        let name = utils::capitalize(&self.name);
-        let link = self.name.to_lowercase();
-        let methods: Value = self
-            .rpc_fns
-            .iter()
-            .map(|(fn_name, args, ret_ty, desc)| {
-                let params = self.convert_types(args, visitor);
-                let return_type = self.convert_types(&[ret_ty.clone()], visitor);
-                let link = format!("{}-{}", name.to_lowercase(), fn_name);
-                render_tera(
-                    include_str!("../templates/method.tera"),
-                    &[
-                        ("link", link.clone().into()),
-                        ("desc", desc.clone().into()),
-                        ("name", fn_name.clone().into()),
-                        ("params", params.into()),
-                        ("return_type", return_type.into()),
-                    ],
-                )
-            })
-            .collect::<Vec<_>>()
-            .into();
-        render_tera(
-            include_str!("../templates/module.tera"),
-            &[
-                ("name", name.clone().into()),
-                ("link", link.into()),
-                ("desc", self.desc.clone().into()),
-                ("methods", methods),
-            ],
-        )
-        .into()
-    }
 }
 
 #[derive(Debug)]
 pub(crate) struct SynVisitor {
     current_module: Option<Module>,
     modules: Vec<Module>,
+    refered_types: Vec<TypeDef>,
 }
 
 impl Visit<'_> for SynVisitor {
@@ -347,13 +210,12 @@ impl SynVisitor {
         if let Ok(tokens) = code.parse() {
             if let Ok(file) = parse2(tokens) {
                 let module_name = file_path.file_stem().unwrap().to_string_lossy();
+                if file_path.to_string_lossy().contains("/gen/") {
+                    return;
+                }
                 let is_rpc = file_path.to_string_lossy().contains("/rpc/");
                 self.current_module = Some(Module::new(module_name.to_string(), is_rpc));
                 self.visit_file(&file);
-                eprintln!("push module_name: {}, is_rpc: {:?}", module_name, is_rpc);
-                if file_path.to_string_lossy().contains("invoice_impl") {
-                    eprintln!("debug here: {:?}", self.current_module);
-                }
                 self.modules.push(self.current_module.take().unwrap());
                 self.current_module = None;
             }
@@ -364,6 +226,7 @@ impl SynVisitor {
         let mut finder = SynVisitor {
             current_module: None,
             modules: vec![],
+            refered_types: vec![],
         };
 
         for entry in WalkDir::new(dir).follow_links(true).into_iter() {
@@ -403,37 +266,15 @@ impl SynVisitor {
             .collect()
     }
 
-    fn get_should_list_types(&self) -> Vec<String> {
-        let mut should_list_types = vec![];
-        let all_types = self
-            .modules
-            .clone()
-            .into_iter()
-            .flat_map(|m| m.types.into_iter())
-            .collect::<Vec<_>>();
-        for m in &self.get_modules() {
-            for (_, _, ty, ..) in &m.types {
-                for (_, t, ..) in ty.iter() {
-                    if let Some((_first_type, generic_type)) = t.split_once('$') {
-                        should_list_types.push(generic_type.to_string());
-                    } else {
-                        should_list_types.push(t.clone());
-                    }
-                }
-            }
-        }
-        should_list_types = should_list_types
-            .into_iter()
-            .filter(|t| all_types.iter().find(|(_, name, ..)| name == t).is_some())
-            .collect();
-        should_list_types.sort();
-        should_list_types.dedup();
-        should_list_types
-    }
-
     fn gen_type_menus(&self) -> Value {
-        let should_list_types = self.get_should_list_types();
-        should_list_types
+        let mut type_list: Vec<_> = self
+            .refered_types
+            .iter()
+            .map(|(_, name, ..)| name.clone())
+            .collect();
+        type_list.sort();
+        type_list.dedup();
+        type_list
             .into_iter()
             .map(|t| {
                 utils::gen_value(&[
@@ -445,22 +286,15 @@ impl SynVisitor {
     }
 
     fn gen_type_content(&self) -> Value {
-        let should_list_types = self.get_should_list_types();
-        let all_types = self
-            .modules
-            .clone()
-            .into_iter()
-            .flat_map(|m| m.types.into_iter())
-            .collect::<Vec<_>>();
-        let gen_types = all_types
-            .into_iter()
-            .filter(|(_, name, ..)| should_list_types.iter().find(|t| *t == name).is_some())
-            .collect::<Vec<_>>();
-
         let mut result = vec![];
-        for (item_type, name, fields, desc) in gen_types {
+        let mut refered_types = self.refered_types.clone();
+        refered_types.sort_by(|a, b| a.1.cmp(&b.1));
+        refered_types.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
+
+        for (item_type, name, fields, desc) in refered_types.iter() {
             let fields: Vec<Value> = fields
                 .iter()
+                .filter(|(field_name, ..)| !field_name.is_empty())
                 .map(|(field_name, field_type, desc)| {
                     let field_type =
                         if let Some((first_type, field_type)) = field_type.split_once('$') {
@@ -486,19 +320,147 @@ impl SynVisitor {
         result.into()
     }
 
-    fn gen_module_content(&self) -> Value {
+    fn gen_type_link(&mut self, ty: &str, module: &Module) -> Option<String> {
+        if let Some(ty) = self.find_type(ty, module) {
+            let res = Some(format!("#type-{}", ty.1.to_lowercase()));
+            return res;
+        }
+        None
+    }
+
+    fn find_type(&mut self, ty: &str, module: &Module) -> Option<TypeDef> {
+        if let Some(type_def) = module
+            .types
+            .iter()
+            .find(|(_, name, ..)| name == ty)
+            .cloned()
+            .or_else(|| {
+                let res = self
+                    .get_non_rpc_modules()
+                    .iter()
+                    .flat_map(|m| m.types.iter())
+                    .find(|(_, name, ..)| name == ty)
+                    .cloned();
+                res
+            })
+        {
+            self.refered_types.push(type_def.clone());
+            return Some(type_def);
+        } else {
+            return None;
+        }
+    }
+
+    fn convert_types(&mut self, types: &[String], module: &Module) -> Vec<Value> {
+        let mut result = vec![];
+        types.iter().for_each(|arg| {
+            self.find_type(arg, module)
+                .map(|(_, _, fields, _)| {
+                    let fields: Vec<Value> = fields
+                        .iter()
+                        .map(|(field_name, field_type, desc)| {
+                            let field_type = if let Some((first_type, field_type)) =
+                                field_type.split_once('$')
+                            {
+                                if let Some(ty_link) = self.gen_type_link(field_type, module) {
+                                    format!("{}<[{}]({})>", first_type, field_type, ty_link)
+                                } else {
+                                    format!("{}<{}>", first_type, field_type)
+                                }
+                            } else {
+                                if let Some(ty_link) = self.gen_type_link(field_type, module) {
+                                    format!("[{}]({})", field_type, ty_link)
+                                } else {
+                                    field_type.clone()
+                                }
+                            };
+                            let render_ty = if field_type.contains("#type") {
+                                field_type
+                            } else {
+                                format!("`{}`", field_type)
+                            };
+                            utils::gen_value(&[
+                                ("name", field_name.clone().into()),
+                                ("type", render_ty.clone().into()),
+                                ("desc", desc.clone().into()),
+                            ])
+                        })
+                        .collect::<Vec<_>>();
+                    for f in fields {
+                        result.push(f);
+                    }
+                })
+                .unwrap_or_else(|| {
+                    result.push(utils::gen_value(&[
+                        ("name", arg.clone().into()),
+                        ("type", arg.clone().into()),
+                        ("desc", "".to_string().into()),
+                    ]));
+                })
+        });
+        // filter the empty type
+        result
+            .into_iter()
+            .filter(|v| {
+                if let Some(v) = v.get("name") {
+                    !v.as_str().unwrap().trim().is_empty()
+                } else {
+                    false
+                }
+            })
+            .collect()
+    }
+
+    fn gen_single_module_content(&mut self, module: &Module) -> Value {
+        let name = utils::capitalize(&module.name);
+        let link = module.name.to_lowercase();
+        let methods: Value = module
+            .rpc_fns
+            .iter()
+            .map(|(fn_name, args, ret_ty, desc)| {
+                let params = self.convert_types(args, module);
+                let return_type = self.convert_types(&[ret_ty.clone()], module);
+                self.refered_types
+                    .retain(|(_, name, ..)| name != ret_ty && !args.contains(name));
+                let link = format!("{}-{}", name.to_lowercase(), fn_name);
+                render_tera(
+                    include_str!("../templates/method.tera"),
+                    &[
+                        ("link", link.clone().into()),
+                        ("desc", desc.clone().into()),
+                        ("name", fn_name.clone().into()),
+                        ("params", params.into()),
+                        ("return_type", return_type.into()),
+                    ],
+                )
+            })
+            .collect::<Vec<_>>()
+            .into();
+        render_tera(
+            include_str!("../templates/module.tera"),
+            &[
+                ("name", name.clone().into()),
+                ("link", link.into()),
+                ("desc", module.desc.clone().into()),
+                ("methods", methods),
+            ],
+        )
+        .into()
+    }
+
+    fn gen_module_content(&mut self) -> Value {
         let content = self
             .get_modules()
             .into_iter()
-            .map(|m| m.gen_module_content(&self))
+            .map(|m| self.gen_single_module_content(&m))
             .collect::<Vec<_>>();
         content.into()
     }
 
-    pub fn gen_markdown(&self, output_path: &str) -> String {
+    pub fn gen_markdown(&mut self, output_path: &str) -> String {
         let module_menus: Vec<Value> = self.gen_module_menus();
-        let type_menus: Value = self.gen_type_menus();
         let modules: Value = self.gen_module_content();
+        let type_menus: Value = self.gen_type_menus();
         let types: Value = self.gen_type_content();
         let output = render_tera(
             include_str!("../templates/readme.tera"),
@@ -538,7 +500,7 @@ struct Args {
 fn main() {
     let args = Args::parse();
     let source_code_dir = args.source_code_dir;
-    let finder = SynVisitor::new(Path::new(&source_code_dir));
+    let mut finder = SynVisitor::new(Path::new(&source_code_dir));
     let output_path = args
         .output
         .unwrap_or(format!("{}/rpc/README.md", source_code_dir));
