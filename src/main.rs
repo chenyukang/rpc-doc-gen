@@ -3,7 +3,7 @@ use fiber_rpc_gen::utils;
 use std::fmt::Display;
 use std::path::Path;
 use syn::visit::Visit;
-use syn::{parse2, Type};
+use syn::Type;
 use tera::{Tera, Value};
 use walkdir::WalkDir;
 
@@ -86,6 +86,38 @@ pub(crate) struct SynVisitor {
     refered_types: Vec<TypeDef>,
 }
 
+fn get_all_ident_type(type_path: &Type) -> Vec<String> {
+    match type_path {
+        syn::Type::Path(syn::TypePath {
+            path: syn::Path { segments, .. },
+            ..
+        }) => segments
+            .iter()
+            .map(|path_seg| match path_seg {
+                syn::PathSegment {
+                    ident,
+                    arguments: syn::PathArguments::AngleBracketed(args),
+                } => {
+                    let args = args
+                        .args
+                        .iter()
+                        .map(|arg| {
+                            if let syn::GenericArgument::Type(inner_type) = arg {
+                                get_all_ident_type(inner_type).join("::")
+                            } else {
+                                "".to_string()
+                            }
+                        })
+                        .collect::<Vec<_>>();
+                    format!("{}${}", ident, args.join("::").as_str())
+                }
+                _ => path_seg.ident.to_string(),
+            })
+            .collect::<Vec<_>>(),
+        _ => vec![],
+    }
+}
+
 impl Visit<'_> for SynVisitor {
     fn visit_item_enum(&mut self, i: &'_ syn::ItemEnum) {
         let enum_name = i.ident.to_string();
@@ -127,39 +159,7 @@ impl Visit<'_> for SynVisitor {
                 .as_ref()
                 .map(|i| i.to_string())
                 .unwrap_or_default();
-            let field_type = match field.ty.clone() {
-                syn::Type::Path(syn::TypePath {
-                    path: syn::Path { segments, .. },
-                    ..
-                }) => segments
-                    .iter()
-                    .map(|s| match s {
-                        syn::PathSegment {
-                            ident,
-                            arguments: syn::PathArguments::AngleBracketed(args),
-                        } => {
-                            let args = args
-                                .args
-                                .iter()
-                                .map(|arg| {
-                                    if let syn::GenericArgument::Type(syn::Type::Path(
-                                        syn::TypePath { path, .. },
-                                    )) = arg
-                                    {
-                                        utils::get_ident_from_path(path)
-                                    } else {
-                                        "".to_string()
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-                            format!("{}${}", ident, args.join("::").as_str())
-                        }
-                        _ => s.ident.to_string(),
-                    })
-                    .collect::<Vec<_>>(),
-                _ => vec![],
-            }
-            .join("::");
+            let field_type = get_all_ident_type(&field.ty).join("::");
             fields.push((field_name, field_type, desc));
         }
         self.current_module.as_mut().unwrap().add_struct_type(
@@ -207,18 +207,16 @@ impl Visit<'_> for SynVisitor {
 impl SynVisitor {
     fn visit_source_file(&mut self, file_path: &std::path::Path) {
         let code = std::fs::read_to_string(file_path).unwrap();
-        if let Ok(tokens) = code.parse() {
-            if let Ok(file) = parse2(tokens) {
-                let module_name = file_path.file_stem().unwrap().to_string_lossy();
-                if file_path.to_string_lossy().contains("/gen/") {
-                    return;
-                }
-                let is_rpc = file_path.to_string_lossy().contains("/rpc/");
-                self.current_module = Some(Module::new(module_name.to_string(), is_rpc));
-                self.visit_file(&file);
-                self.modules.push(self.current_module.take().unwrap());
-                self.current_module = None;
+        if let Ok(file) = syn::parse_file(&code) {
+            let module_name = file_path.file_stem().unwrap().to_string_lossy();
+            if file_path.to_string_lossy().contains("/gen/") {
+                return;
             }
+            let is_rpc = file_path.to_string_lossy().contains("/rpc/");
+            self.current_module = Some(Module::new(module_name.to_string(), is_rpc));
+            self.visit_file(&file);
+            self.modules.push(self.current_module.take().unwrap());
+            self.current_module = None;
         }
     }
 
@@ -285,6 +283,14 @@ impl SynVisitor {
             .collect()
     }
 
+    fn render_generic_type(&self, ty: &str) -> String {
+        if let Some((first_type, inner_type)) = ty.split_once('$') {
+            format!("`{}<{}>`", first_type, self.render_generic_type(inner_type))
+        } else {
+            ty.to_string()
+        }
+    }
+
     fn gen_type_content(&self) -> Value {
         let mut result = vec![];
         let mut refered_types = self.refered_types.clone();
@@ -296,12 +302,7 @@ impl SynVisitor {
                 .iter()
                 .filter(|(field_name, ..)| !field_name.is_empty())
                 .map(|(field_name, field_type, desc)| {
-                    let field_type =
-                        if let Some((first_type, field_type)) = field_type.split_once('$') {
-                            format!("`{}<{}>`", first_type, field_type)
-                        } else {
-                            field_type.clone()
-                        };
+                    let field_type = self.render_generic_type(&field_type);
                     utils::gen_value(&[
                         ("name", field_name.clone().into()),
                         ("type", field_type.clone().into()),
@@ -351,6 +352,22 @@ impl SynVisitor {
         }
     }
 
+    fn render_type_with_link(&mut self, type_path: &str, module: &Module) -> String {
+        if let Some((first_type, inner_type)) = type_path.split_once('$') {
+            format!(
+                "{}<{}>",
+                first_type,
+                self.render_type_with_link(inner_type, module)
+            )
+        } else {
+            if let Some(ty_link) = self.gen_type_link(type_path, module) {
+                format!("[{}]({})", type_path, ty_link)
+            } else {
+                type_path.to_string()
+            }
+        }
+    }
+
     fn convert_types(&mut self, types: &[String], module: &Module) -> Vec<Value> {
         let mut result = vec![];
         types.iter().for_each(|arg| {
@@ -359,21 +376,7 @@ impl SynVisitor {
                     let fields: Vec<Value> = fields
                         .iter()
                         .map(|(field_name, field_type, desc)| {
-                            let field_type = if let Some((first_type, field_type)) =
-                                field_type.split_once('$')
-                            {
-                                if let Some(ty_link) = self.gen_type_link(field_type, module) {
-                                    format!("{}<[{}]({})>", first_type, field_type, ty_link)
-                                } else {
-                                    format!("{}<{}>", first_type, field_type)
-                                }
-                            } else {
-                                if let Some(ty_link) = self.gen_type_link(field_type, module) {
-                                    format!("[{}]({})", field_type, ty_link)
-                                } else {
-                                    field_type.clone()
-                                }
-                            };
+                            let field_type = self.render_type_with_link(field_type, module);
                             let render_ty = if field_type.contains("#type") {
                                 field_type
                             } else {
@@ -457,7 +460,7 @@ impl SynVisitor {
         content.into()
     }
 
-    pub fn gen_markdown(&mut self, output_path: &str) -> String {
+    pub fn gen_markdown(&mut self, output_path: &str) {
         let module_menus: Vec<Value> = self.gen_module_menus();
         let modules: Value = self.gen_module_content();
         let type_menus: Value = self.gen_type_menus();
@@ -471,8 +474,7 @@ impl SynVisitor {
                 ("types", types.into()),
             ],
         );
-        std::fs::write(output_path, output.clone()).unwrap();
-        output
+        std::fs::write(output_path, output).unwrap();
     }
 }
 
