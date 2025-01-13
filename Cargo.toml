@@ -1,6 +1,6 @@
 [package]
 name = "fiber-rpc-gen"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "A simple tool to generate documentation for Fiber RPC services."
 license-file = "COPYING.md"

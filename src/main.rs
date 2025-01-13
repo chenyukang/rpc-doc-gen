@@ -209,7 +209,9 @@ impl SynVisitor {
         let code = std::fs::read_to_string(file_path).unwrap();
         if let Ok(file) = syn::parse_file(&code) {
             let module_name = file_path.file_stem().unwrap().to_string_lossy();
-            if file_path.to_string_lossy().contains("/gen/") {
+            if file_path.to_string_lossy().contains("/gen/")
+                || file_path.to_string_lossy().contains("/migrations/")
+            {
                 return;
             }
             let is_rpc = file_path.to_string_lossy().contains("/rpc/");
