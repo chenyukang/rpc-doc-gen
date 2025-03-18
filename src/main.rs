@@ -504,6 +504,7 @@ fn render_tera(template: &str, content: &[(&str, Value)]) -> String {
 #[derive(Parser)]
 #[command(name = "fiber-rpc-gen")]
 #[command(about = "Generates markdown documentation for RPCs in fiber", long_about = None)]
+#[command(version)] // This will automatically add --version flag
 struct Args {
     /// RPC directory
     source_code_dir: String,
