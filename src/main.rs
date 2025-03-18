@@ -229,13 +229,14 @@ impl SynVisitor {
             refered_types: vec![],
         };
 
+        eprintln!("generate doc for dir: {}", dir.display());
         for entry in WalkDir::new(dir).follow_links(true).into_iter() {
             match entry {
                 Ok(ref e)
                     if !e.file_name().to_string_lossy().starts_with('.')
                         && e.file_name().to_string_lossy().ends_with(".rs") =>
                 {
-                    eprintln!("visit file: {:?}", e.path());
+                    eprintln!("parsing file: {:?}", e.path());
                     finder.visit_source_file(e.path());
                 }
                 _ => (),
@@ -285,15 +286,7 @@ impl SynVisitor {
             .collect()
     }
 
-    fn render_generic_type(&self, ty: &str) -> String {
-        if let Some((first_type, inner_type)) = ty.split_once('$') {
-            format!("`{}<{}>`", first_type, self.render_generic_type(inner_type))
-        } else {
-            ty.to_string()
-        }
-    }
-
-    fn gen_type_content(&self) -> Value {
+    fn gen_type_content(&mut self) -> Value {
         let mut result = vec![];
         let mut refered_types = self.refered_types.clone();
         refered_types.sort_by(|a, b| a.1.cmp(&b.1));
@@ -304,7 +297,10 @@ impl SynVisitor {
                 .iter()
                 .filter(|(field_name, ..)| !field_name.is_empty())
                 .map(|(field_name, field_type, desc)| {
-                    let field_type = self.render_generic_type(&field_type);
+                    let field_type = self.render_type_with_link(
+                        field_type,
+                        &Module::new("dummy".to_string(), false),
+                    );
                     utils::gen_value(&[
                         ("name", field_name.clone().into()),
                         ("type", field_type.clone().into()),
@@ -520,5 +516,6 @@ fn main() {
     let output_path = args
         .output
         .unwrap_or(format!("{}/rpc/README.md", source_code_dir));
+    eprintln!("dumping to: {}", output_path);
     finder.gen_markdown(&output_path);
 }
