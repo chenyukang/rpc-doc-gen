@@ -347,6 +347,17 @@ impl SynVisitor {
                 res
             })
         {
+            if type_def.0 == ItemType::Struct {
+                for (_field_name, field_type, _) in type_def.2.iter() {
+                    let field_type = field_type
+                        .split('$')
+                        .last()
+                        .unwrap_or(field_type)
+                        .to_string();
+                    let _ = self.find_type(&field_type, module);
+                }
+            }
+
             self.refered_types.push(type_def.clone());
             return Some(type_def);
         } else {
