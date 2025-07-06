@@ -306,6 +306,11 @@ impl SynVisitor {
                         field_type,
                         &Module::new("dummy".to_string(), false),
                     );
+                    let field_type = if field_type.contains("#") {
+                        field_type
+                    } else {
+                        format!("`{}`", field_type)
+                    };
                     utils::gen_value(&[
                         ("name", field_name.clone().into()),
                         ("type", field_type.clone().into()),
