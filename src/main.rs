@@ -128,10 +128,15 @@ impl Visit<'_> for SynVisitor {
             let desc = utils::get_doc_from_attrs(&v.attrs);
             let field_type = match &v.fields {
                 syn::Fields::Unnamed(fields) if fields.unnamed.len() > 0 => {
-                    if let syn::Type::Path(syn::TypePath { path, .. }) =
+                    if let syn::Type::Path(syn::TypePath { .. }) =
                         fields.unnamed.first().unwrap().ty.clone()
                     {
-                        utils::get_ident_from_path(&path)
+                        fields
+                            .unnamed
+                            .iter()
+                            .map(|x| get_all_ident_type(&x.ty).join("::"))
+                            .collect::<Vec<_>>()
+                            .join(", ")
                     } else {
                         "".to_string()
                     }
