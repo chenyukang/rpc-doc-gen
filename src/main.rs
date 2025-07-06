@@ -306,7 +306,7 @@ impl SynVisitor {
                         field_type,
                         &Module::new("dummy".to_string(), false),
                     );
-                    let field_type = if field_type.contains("#") {
+                    let field_type = if field_type.contains("#") || field_type == "" {
                         field_type
                     } else {
                         format!("`{}`", field_type)
