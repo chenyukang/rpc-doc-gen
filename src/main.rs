@@ -7,6 +7,12 @@ use syn::Type;
 use tera::{Tera, Value};
 use walkdir::WalkDir;
 
+const IGNORE: &'static str = "ignore rpc-doc-gen";
+
+fn is_ignored(s: &str) -> bool {
+    s.trim_start().starts_with(IGNORE)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum ItemType {
     Struct,
@@ -64,9 +70,13 @@ impl Module {
         self.rpc_fns.push((name, args, ret_ty, desc));
     }
 
+    pub fn get_rpc_fns(&self) -> Vec<(String, Vec<String>, String, String)> {
+        self.rpc_fns.clone()
+    }
+
     pub fn gen_menu(&self) -> Value {
         let method_names = self
-            .rpc_fns
+            .get_rpc_fns()
             .iter()
             .map(|(name, _, _, _)| name.clone())
             .collect::<Vec<_>>();
@@ -122,10 +132,16 @@ impl Visit<'_> for SynVisitor {
     fn visit_item_enum(&mut self, i: &'_ syn::ItemEnum) {
         let enum_name = i.ident.to_string();
         let desc = utils::get_doc_from_attrs(&i.attrs);
+        if is_ignored(&desc) {
+            return;
+        }
         let mut fields = vec![];
         for v in &i.variants {
             let field_name = v.ident.to_string();
             let desc = utils::get_doc_from_attrs(&v.attrs);
+            if is_ignored(&desc) {
+                continue;
+            }
             let field_type = match &v.fields {
                 syn::Fields::Unnamed(fields) if fields.unnamed.len() > 0 => {
                     if let syn::Type::Path(syn::TypePath { .. }) =
@@ -156,9 +172,15 @@ impl Visit<'_> for SynVisitor {
     fn visit_item_struct(&mut self, i: &syn::ItemStruct) {
         let ident_name = i.ident.to_string();
         let desc = utils::get_doc_from_attrs(&i.attrs);
+        if is_ignored(&desc) {
+            return;
+        }
         let mut fields = vec![];
         for field in &i.fields {
             let desc = utils::get_doc_from_attrs(&field.attrs);
+            if is_ignored(&desc) {
+                continue;
+            }
             let field_name = field
                 .ident
                 .as_ref()
@@ -177,16 +199,26 @@ impl Visit<'_> for SynVisitor {
 
     fn visit_item_trait(&mut self, trait_item: &'_ syn::ItemTrait) {
         let desc = utils::get_doc_from_attrs(&trait_item.attrs);
+        if is_ignored(&desc) {
+            return;
+        }
         self.current_module.as_mut().unwrap().set_desc(desc);
         for i in trait_item.items.iter() {
             if let syn::TraitItem::Fn(item_fn) = i {
                 let desc = utils::get_doc_from_attrs(&item_fn.attrs);
+                if is_ignored(&desc) {
+                    continue;
+                }
                 let args: Vec<_> = item_fn
                     .sig
                     .inputs
                     .iter()
                     .filter_map(|arg| {
                         if let syn::FnArg::Typed(pat) = arg {
+                            let desc = utils::get_doc_from_attrs(&pat.attrs);
+                            if is_ignored(&desc) {
+                                return None;
+                            }
                             let path = match pat.ty.as_ref() {
                                 Type::Path(syn::TypePath { path, .. }) => Some(path),
                                 _ => None,
@@ -260,7 +292,15 @@ impl SynVisitor {
         self.modules
             .clone()
             .into_iter()
-            .filter(|m| !m.rpc_fns.is_empty() && m.is_rpc)
+            .filter(|m| !m.rpc_fns.is_empty() && m.is_rpc && !is_ignored(&m.desc))
+            .collect()
+    }
+
+    fn get_refered_types(&self) -> Vec<TypeDef> {
+        self.refered_types
+            .clone()
+            .into_iter()
+            .filter(|(.., desc)| !is_ignored(desc))
             .collect()
     }
 
@@ -274,7 +314,7 @@ impl SynVisitor {
 
     fn gen_type_menus(&self) -> Value {
         let mut type_list: Vec<_> = self
-            .refered_types
+            .get_refered_types()
             .iter()
             .map(|(_, name, ..)| name.clone())
             .collect();
@@ -293,14 +333,14 @@ impl SynVisitor {
 
     fn gen_type_content(&mut self) -> Value {
         let mut result = vec![];
-        let mut refered_types = self.refered_types.clone();
+        let mut refered_types = self.get_refered_types();
         refered_types.sort_by(|a, b| a.1.cmp(&b.1));
         refered_types.dedup_by(|a, b| a.0 == b.0 && a.1 == b.1);
 
         for (item_type, name, fields, desc) in refered_types.iter() {
             let fields: Vec<Value> = fields
                 .iter()
-                .filter(|(field_name, ..)| !field_name.is_empty())
+                .filter(|(field_name, .., desc)| !field_name.is_empty() && !is_ignored(&desc))
                 .map(|(field_name, field_type, desc)| {
                     let field_type = self.render_type_with_link(
                         field_type,
