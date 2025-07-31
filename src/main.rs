@@ -8,6 +8,7 @@ use tera::{Tera, Value};
 use walkdir::WalkDir;
 
 const IGNORE: &'static str = "ignore rpc-doc-gen";
+const RPC_CONTEXT: &'static str = "RpcContext";
 
 fn is_ignored(s: &str) -> bool {
     s.trim_start().starts_with(IGNORE)
@@ -215,15 +216,14 @@ impl Visit<'_> for SynVisitor {
                     .iter()
                     .filter_map(|arg| {
                         if let syn::FnArg::Typed(pat) = arg {
-                            let desc = utils::get_doc_from_attrs(&pat.attrs);
-                            if is_ignored(&desc) {
-                                return None;
-                            }
                             let path = match pat.ty.as_ref() {
                                 Type::Path(syn::TypePath { path, .. }) => Some(path),
                                 _ => None,
                             };
+
+                            // filter out RPC_CONTEXT args
                             path.map(|path| utils::get_ident_from_path(path))
+                                .filter(|arg| arg != RPC_CONTEXT)
                         } else {
                             None
                         }
