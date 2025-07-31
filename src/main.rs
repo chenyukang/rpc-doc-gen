@@ -8,6 +8,7 @@ use tera::{Tera, Value};
 use walkdir::WalkDir;
 
 const IGNORE: &'static str = "ignore rpc-doc-gen";
+const RPC_CONTEXT: &'static str = "RpcContext";
 
 fn is_ignored(s: &str) -> bool {
     s.trim_start().starts_with(IGNORE)
@@ -139,9 +140,6 @@ impl Visit<'_> for SynVisitor {
         for v in &i.variants {
             let field_name = v.ident.to_string();
             let desc = utils::get_doc_from_attrs(&v.attrs);
-            if is_ignored(&desc) {
-                continue;
-            }
             let field_type = match &v.fields {
                 syn::Fields::Unnamed(fields) if fields.unnamed.len() > 0 => {
                     if let syn::Type::Path(syn::TypePath { .. }) =
@@ -178,9 +176,6 @@ impl Visit<'_> for SynVisitor {
         let mut fields = vec![];
         for field in &i.fields {
             let desc = utils::get_doc_from_attrs(&field.attrs);
-            if is_ignored(&desc) {
-                continue;
-            }
             let field_name = field
                 .ident
                 .as_ref()
@@ -206,24 +201,20 @@ impl Visit<'_> for SynVisitor {
         for i in trait_item.items.iter() {
             if let syn::TraitItem::Fn(item_fn) = i {
                 let desc = utils::get_doc_from_attrs(&item_fn.attrs);
-                if is_ignored(&desc) {
-                    continue;
-                }
                 let args: Vec<_> = item_fn
                     .sig
                     .inputs
                     .iter()
                     .filter_map(|arg| {
                         if let syn::FnArg::Typed(pat) = arg {
-                            let desc = utils::get_doc_from_attrs(&pat.attrs);
-                            if is_ignored(&desc) {
-                                return None;
-                            }
                             let path = match pat.ty.as_ref() {
                                 Type::Path(syn::TypePath { path, .. }) => Some(path),
                                 _ => None,
                             };
+
+                            // filter out RPC_CONTEXT args
                             path.map(|path| utils::get_ident_from_path(path))
+                                .filter(|arg| arg != RPC_CONTEXT)
                         } else {
                             None
                         }
@@ -340,7 +331,7 @@ impl SynVisitor {
         for (item_type, name, fields, desc) in refered_types.iter() {
             let fields: Vec<Value> = fields
                 .iter()
-                .filter(|(field_name, .., desc)| !field_name.is_empty() && !is_ignored(&desc))
+                .filter(|(field_name, ..)| !field_name.is_empty())
                 .map(|(field_name, field_type, desc)| {
                     let field_type = self.render_type_with_link(
                         field_type,
