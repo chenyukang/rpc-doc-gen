@@ -250,7 +250,7 @@ impl SynVisitor {
         }
     }
 
-    pub fn new(dir: &Path) -> SynVisitor {
+    pub fn new(dir: &Path, extra_type_dirs: &[&Path]) -> SynVisitor {
         let mut finder = SynVisitor {
             current_module: None,
             modules: vec![],
@@ -268,6 +268,23 @@ impl SynVisitor {
                     finder.visit_source_file(e.path());
                 }
                 _ => (),
+            }
+        }
+
+        // Scan extra directories for type definitions only (non-RPC modules)
+        for extra_dir in extra_type_dirs {
+            eprintln!("generate types from extra dir: {}", extra_dir.display());
+            for entry in WalkDir::new(extra_dir).follow_links(true).into_iter() {
+                match entry {
+                    Ok(ref e)
+                        if !e.file_name().to_string_lossy().starts_with('.')
+                            && e.file_name().to_string_lossy().ends_with(".rs") =>
+                    {
+                        eprintln!("parsing file: {:?}", e.path());
+                        finder.visit_source_file(e.path());
+                    }
+                    _ => (),
+                }
             }
         }
 
@@ -548,12 +565,20 @@ struct Args {
     /// Output file path
     #[clap(short, long)]
     output: Option<String>,
+    /// Extra directories to scan for type definitions (not RPC methods)
+    #[clap(long)]
+    extra_types_dir: Vec<String>,
 }
 
 fn main() {
     let args = Args::parse();
     let source_code_dir = args.source_code_dir;
-    let mut finder = SynVisitor::new(Path::new(&source_code_dir));
+    let extra_type_dirs: Vec<_> = args
+        .extra_types_dir
+        .iter()
+        .map(|s| Path::new(s.as_str()))
+        .collect();
+    let mut finder = SynVisitor::new(Path::new(&source_code_dir), &extra_type_dirs);
     let output_path = args
         .output
         .unwrap_or(format!("{}/rpc/README.md", source_code_dir));
