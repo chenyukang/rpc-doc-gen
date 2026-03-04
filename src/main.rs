@@ -40,6 +40,9 @@ pub(crate) struct Module {
     pub rpc_fns: Vec<(String, Vec<String>, String, String)>,
     pub desc: String,
     pub is_rpc: bool,
+    /// Higher priority modules take precedence in type resolution.
+    /// json-types-dir modules get priority 1, extra-types-dir modules get priority 0.
+    pub priority: u32,
 }
 
 impl Module {
@@ -50,6 +53,18 @@ impl Module {
             rpc_fns: vec![],
             desc: "".to_string(),
             is_rpc,
+            priority: 0,
+        }
+    }
+
+    pub fn new_with_priority(name: String, is_rpc: bool, priority: u32) -> Module {
+        Module {
+            name,
+            types: vec![],
+            rpc_fns: vec![],
+            desc: "".to_string(),
+            is_rpc,
+            priority,
         }
     }
 
@@ -233,7 +248,7 @@ impl Visit<'_> for SynVisitor {
 }
 
 impl SynVisitor {
-    fn visit_source_file(&mut self, file_path: &std::path::Path) {
+    fn visit_source_file(&mut self, file_path: &std::path::Path, priority: u32) {
         let code = std::fs::read_to_string(file_path).unwrap();
         if let Ok(file) = syn::parse_file(&code) {
             let module_name = file_path.file_stem().unwrap().to_string_lossy();
@@ -243,14 +258,18 @@ impl SynVisitor {
                 return;
             }
             let is_rpc = file_path.to_string_lossy().contains("/rpc/");
-            self.current_module = Some(Module::new(module_name.to_string(), is_rpc));
+            self.current_module = Some(Module::new_with_priority(
+                module_name.to_string(),
+                is_rpc,
+                priority,
+            ));
             self.visit_file(&file);
             self.modules.push(self.current_module.take().unwrap());
             self.current_module = None;
         }
     }
 
-    pub fn new(dir: &Path, extra_type_dirs: &[&Path]) -> SynVisitor {
+    pub fn new(dir: &Path, extra_type_dirs: &[&Path], json_type_dirs: &[&Path]) -> SynVisitor {
         let mut finder = SynVisitor {
             current_module: None,
             modules: vec![],
@@ -265,7 +284,7 @@ impl SynVisitor {
                         && e.file_name().to_string_lossy().ends_with(".rs") =>
                 {
                     eprintln!("parsing file: {:?}", e.path());
-                    finder.visit_source_file(e.path());
+                    finder.visit_source_file(e.path(), 0);
                 }
                 _ => (),
             }
@@ -281,7 +300,29 @@ impl SynVisitor {
                             && e.file_name().to_string_lossy().ends_with(".rs") =>
                     {
                         eprintln!("parsing file: {:?}", e.path());
-                        finder.visit_source_file(e.path());
+                        finder.visit_source_file(e.path(), 0);
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // Scan JSON types directories with higher priority.
+        // Types from these directories take precedence over types with the same name
+        // from extra-types-dir or the main source directory.
+        for json_dir in json_type_dirs {
+            eprintln!(
+                "generate types from json types dir (high priority): {}",
+                json_dir.display()
+            );
+            for entry in WalkDir::new(json_dir).follow_links(true).into_iter() {
+                match entry {
+                    Ok(ref e)
+                        if !e.file_name().to_string_lossy().starts_with('.')
+                            && e.file_name().to_string_lossy().ends_with(".rs") =>
+                    {
+                        eprintln!("parsing file: {:?}", e.path());
+                        finder.visit_source_file(e.path(), 1);
                     }
                     _ => (),
                 }
@@ -392,13 +433,23 @@ impl SynVisitor {
             .find(|(_, name, ..)| name == ty)
             .cloned()
             .or_else(|| {
-                let res = self
-                    .get_non_rpc_modules()
+                let non_rpc = self.get_non_rpc_modules();
+                // First search high-priority modules (e.g., json-types-dir),
+                // then fall back to normal-priority modules.
+                non_rpc
                     .iter()
+                    .filter(|m| m.priority > 0)
                     .flat_map(|m| m.types.iter())
                     .find(|(_, name, ..)| name == ty)
-                    .cloned();
-                res
+                    .cloned()
+                    .or_else(|| {
+                        non_rpc
+                            .iter()
+                            .filter(|m| m.priority == 0)
+                            .flat_map(|m| m.types.iter())
+                            .find(|(_, name, ..)| name == ty)
+                            .cloned()
+                    })
             })
         {
             if type_def.0 == ItemType::Struct {
@@ -568,6 +619,11 @@ struct Args {
     /// Extra directories to scan for type definitions (not RPC methods)
     #[clap(long)]
     extra_types_dir: Vec<String>,
+    /// JSON types directories to scan for type definitions with higher priority.
+    /// Types from these directories take precedence over types with the same name
+    /// from --extra-types-dir or the main source directory.
+    #[clap(long)]
+    json_types_dir: Vec<String>,
 }
 
 fn main() {
@@ -578,7 +634,16 @@ fn main() {
         .iter()
         .map(|s| Path::new(s.as_str()))
         .collect();
-    let mut finder = SynVisitor::new(Path::new(&source_code_dir), &extra_type_dirs);
+    let json_type_dirs: Vec<_> = args
+        .json_types_dir
+        .iter()
+        .map(|s| Path::new(s.as_str()))
+        .collect();
+    let mut finder = SynVisitor::new(
+        Path::new(&source_code_dir),
+        &extra_type_dirs,
+        &json_type_dirs,
+    );
     let output_path = args
         .output
         .unwrap_or(format!("{}/rpc/README.md", source_code_dir));
