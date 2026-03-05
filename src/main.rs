@@ -110,6 +110,8 @@ pub(crate) struct SynVisitor {
     current_module: Option<Module>,
     modules: Vec<Module>,
     refered_types: Vec<TypeDef>,
+    /// Module names to exclude from RPC documentation (treated as non-RPC).
+    exclude_modules: Vec<String>,
 }
 
 fn get_all_ident_type(type_path: &Type) -> Vec<String> {
@@ -269,11 +271,17 @@ impl SynVisitor {
         }
     }
 
-    pub fn new(dir: &Path, extra_type_dirs: &[&Path], json_type_dirs: &[&Path]) -> SynVisitor {
+    pub fn new(
+        dir: &Path,
+        extra_type_dirs: &[&Path],
+        json_type_dirs: &[&Path],
+        exclude_modules: Vec<String>,
+    ) -> SynVisitor {
         let mut finder = SynVisitor {
             current_module: None,
             modules: vec![],
             refered_types: vec![],
+            exclude_modules,
         };
 
         eprintln!("generate doc for dir: {}", dir.display());
@@ -341,7 +349,12 @@ impl SynVisitor {
         self.modules
             .clone()
             .into_iter()
-            .filter(|m| !m.rpc_fns.is_empty() && m.is_rpc && !is_ignored(&m.desc))
+            .filter(|m| {
+                !m.rpc_fns.is_empty()
+                    && m.is_rpc
+                    && !is_ignored(&m.desc)
+                    && !self.exclude_modules.contains(&m.name)
+            })
             .collect()
     }
 
@@ -624,6 +637,10 @@ struct Args {
     /// from --extra-types-dir or the main source directory.
     #[clap(long)]
     json_types_dir: Vec<String>,
+    /// Module names to exclude from RPC documentation generation.
+    /// These modules will be treated as non-RPC modules (type-only).
+    #[clap(long)]
+    exclude_modules: Vec<String>,
 }
 
 fn main() {
@@ -643,6 +660,7 @@ fn main() {
         Path::new(&source_code_dir),
         &extra_type_dirs,
         &json_type_dirs,
+        args.exclude_modules,
     );
     let output_path = args
         .output
