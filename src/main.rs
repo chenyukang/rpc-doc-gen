@@ -155,7 +155,7 @@ impl Visit<'_> for SynVisitor {
         }
         let mut fields = vec![];
         for v in &i.variants {
-            let field_name = v.ident.to_string();
+            let field_name = utils::get_enum_variant_name(&i.attrs, &v.attrs, &v.ident.to_string());
             let desc = utils::get_doc_from_attrs(&v.attrs);
             let field_type = match &v.fields {
                 syn::Fields::Unnamed(fields) if fields.unnamed.len() > 0 => {
